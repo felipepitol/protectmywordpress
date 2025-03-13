@@ -1,8 +1,8 @@
 <?php
 /**
- * Classe PMW_Security
+ * Classe PMWSecurity
  *
- * Responsável por aplicar as medidas de segurança do plugin.
+ * Responsável por aplicar as medidas de segurança do plugin e fornecer verificação de status.
  *
  * @package ProtectMyWordPress
  */
@@ -12,9 +12,9 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Class PMW_Security
+ * Class PMWSecurity
  */
-class PMW_Security
+class PMWSecurity
 {
     /**
      * Array de opções do plugin.
@@ -24,14 +24,13 @@ class PMW_Security
     private $options;
 
     /**
-     * Construtor da classe.
+     * Construtor.
      */
     public function __construct()
     {
-        // Carrega as opções do plugin, definindo valores padrão se não existirem.
+        // Carrega as opções definidas ou utiliza os valores padrão.
         $this->options = get_option('pmw_options', $this->defaultOptions());
-
-        // Aplica as medidas de segurança conforme as opções configuradas.
+        // Aplica as medidas de segurança conforme as opções.
         $this->applySecurityMeasures();
     }
 
@@ -76,7 +75,7 @@ class PMW_Security
             }
         }
 
-        // Previne execução de código na pasta de uploads.
+        // Previne a execução de código na pasta de uploads.
         if (!empty($this->options['prevent_uploads_code_execution'])) {
             add_action('init', [$this, 'createUploadsHtaccess']);
         }
@@ -206,5 +205,49 @@ class PMW_Security
             $errors->add('displayname_error', __('Seu nome de exibição não pode ser igual ao nome de usuário.', 'protectmywordpress'));
         }
         return $errors;
+    }
+
+    /**
+     * Verifica o status dos módulos de segurança.
+     *
+     * Retorna um array associativo onde cada chave representa um módulo e seu valor indica
+     * "OK" ou uma mensagem de erro.
+     *
+     * @return array
+     */
+    public function checkModulesStatus()
+    {
+        $status = [];
+
+        // Verifica se o registro de usuários está desabilitado.
+        $status['disable_registration'] = (get_option('users_can_register') == 0)
+            ? 'OK'
+            : __('Erro: users_can_register ativado.', 'protectmywordpress');
+
+        // Verifica se o editor de arquivos está desabilitado.
+        $status['disable_file_editors'] = (defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT === true)
+            ? 'OK'
+            : __('Erro: DISALLOW_FILE_EDIT não definido.', 'protectmywordpress');
+
+        // Verifica a existência do .htaccess na pasta de uploads.
+        $upload_dir    = wp_upload_dir();
+        $htaccess_file = trailingslashit($upload_dir['basedir']) . '.htaccess';
+        $status['prevent_uploads_code_execution'] = (file_exists($htaccess_file))
+            ? 'OK'
+            : __('Erro: .htaccess não encontrado em uploads.', 'protectmywordpress');
+
+        // Verifica se o index.php na pasta de uploads existe.
+        $index_file = trailingslashit($upload_dir['basedir']) . 'index.php';
+        $status['disable_directory_browsing'] = (file_exists($index_file))
+            ? 'OK'
+            : __('Erro: index.php não existe em uploads.', 'protectmywordpress');
+
+        // Verifica se o XML-RPC está desabilitado.
+        $xmlrpc_status = apply_filters('xmlrpc_enabled', true);
+        $status['disable_xmlrpc'] = ($xmlrpc_status === false)
+            ? 'OK'
+            : __('Erro: XML-RPC ativado.', 'protectmywordpress');
+
+        return $status;
     }
 }

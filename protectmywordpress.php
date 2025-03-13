@@ -2,7 +2,7 @@
 /**
  * Plugin Name: ProtectMyWordPress
  * Plugin URI: https://felipepitol.me/protectmywordpress
- * Description: Plugin de segurança para WordPress com diversas medidas de proteção.
+ * Description: Plugin de segurança para WordPress com diversas medidas de proteção e interface moderna.
  * Version: 1.0
  * Author: Felipe Pitol
  * Author URI: https://felipepitol.me
@@ -24,8 +24,6 @@ require_once PMW_PLUGIN_DIR . 'includes/class-security.php';
 require_once PMW_PLUGIN_DIR . 'includes/class-admin.php';
 require_once PMW_PLUGIN_DIR . 'includes/functions.php';
 
-// Inicializa a classe de administração.
-new PMW_Admin();
-
-// Inicializa a classe de segurança.
-new PMW_Security();
+// Inicializa as classes.
+new PMWAdmin();
+new PMWSecurity();
