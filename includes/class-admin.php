@@ -97,20 +97,21 @@ class PMWAdmin
             'pmw_admin_css',
             plugin_dir_url(__FILE__) . '../assets/css/admin-style.css',
             [],
-            '1.0'
+            PMW_VERSION
         );
 
         wp_enqueue_script(
             'pmw_admin_js',
             plugin_dir_url(__FILE__) . '../assets/js/admin-script.js',
             ['jquery'],
-            '1.0',
+            PMW_VERSION,
             true
         );
 
         wp_localize_script('pmw_admin_js', 'pmw_ajax_obj', [
             'ajax_url'       => admin_url('admin-ajax.php'),
-            'plugin_version' => '1.0',
+            'nonce'          => wp_create_nonce('pmw_ajax_nonce'),
+            'plugin_version' => PMW_VERSION,
         ]);
     }
 
@@ -214,7 +215,7 @@ class PMWAdmin
 
             <!-- Exibe a versão do plugin -->
             <div class="pmw-version">
-                <?php echo esc_html__('Versão: ', 'protectmywordpress') . '1.0'; ?>
+                <?php echo esc_html__('Versão: ', 'protectmywordpress') . PMW_VERSION; ?>
             </div>
         </div>
         <?php

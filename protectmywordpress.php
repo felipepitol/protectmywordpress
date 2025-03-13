@@ -18,6 +18,7 @@ if (!defined('ABSPATH')) {
 // Define constantes para o plugin.
 define('PMW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PMW_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('PMW_VERSION', '1.0');
 
 // Carrega os arquivos necessários.
 require_once PMW_PLUGIN_DIR . 'includes/class-security.php';

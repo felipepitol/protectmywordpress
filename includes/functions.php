@@ -14,6 +14,11 @@ if (!defined('ABSPATH')) {
  */
 function pmw_ajax_check_status()
 {
+    // Verifica nonce para segurança.
+    if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'pmw_ajax_nonce')) {
+        wp_send_json_error(__('Falha na verificação de segurança.', 'protectmywordpress'));
+    }
+
     // Verifica se o usuário tem permissão.
     if (!current_user_can('manage_options')) {
         wp_send_json_error(__('Acesso negado.', 'protectmywordpress'));
