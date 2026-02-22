@@ -14,36 +14,6 @@ jQuery(document).ready(function ($) {
         }, 3000);
     }
 
-    // Quando um switch é alternado, dispara uma verificação via AJAX.
-    $('.pmw-switch input[type="checkbox"]').change(function () {
-        var checkbox = $(this);
-        var optionName = checkbox.attr('name').match(/\[(.*?)\]/)[1];
-
-        $.ajax({
-            url: pmw_ajax_obj.ajax_url,
-            method: 'POST',
-            data: {
-                action: 'pmw_check_status',
-                nonce: pmw_ajax_obj.nonce
-            },
-            success: function (response) {
-                if (response.success) {
-                    var status = response.data[optionName];
-                    if (status === 'OK') {
-                        showToast(optionName + ' ativado com sucesso.');
-                    } else {
-                        showToast(optionName + ' não ativado: ' + status);
-                    }
-                } else {
-                    showToast('Erro ao verificar o status.');
-                }
-            },
-            error: function () {
-                showToast('Erro na comunicação com o servidor.');
-            }
-        });
-    });
-
     // Ao clicar no botão de checar status, preenche uma área com os resultados.
     $('#pmw-check-status').click(function (e) {
         e.preventDefault();

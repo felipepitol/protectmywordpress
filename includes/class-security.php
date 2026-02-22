@@ -239,37 +239,85 @@ class PMWSecurity
      */
     public static function checkModulesStatus()
     {
-        $options = pmw_get_options();
-        $status  = [];
+        $options    = pmw_get_options();
+        $status     = [];
+        $upload_dir = wp_upload_dir();
+        $basedir    = trailingslashit($upload_dir['basedir']);
 
         // Verifica se o registro de usuários está desabilitado.
-        $status['disable_registration'] = (get_option('users_can_register') == 0)
-            ? 'OK'
-            : __('Erro: users_can_register ativado.', 'protectmywordpress');
+        if (empty($options['disable_registration'])) {
+            $status['disable_registration'] = __('Módulo desativado.', 'protectmywordpress');
+        } else {
+            $status['disable_registration'] = (get_option('users_can_register') == 0)
+                ? 'OK'
+                : __('Erro: users_can_register ativado.', 'protectmywordpress');
+        }
 
         // Verifica se o editor de arquivos está desabilitado.
-        $status['disable_file_editors'] = (defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT === true)
-            ? 'OK'
-            : __('Erro: DISALLOW_FILE_EDIT não definido.', 'protectmywordpress');
+        if (empty($options['disable_file_editors'])) {
+            $status['disable_file_editors'] = __('Módulo desativado.', 'protectmywordpress');
+        } else {
+            $status['disable_file_editors'] = (defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT === true)
+                ? 'OK'
+                : __('Erro: DISALLOW_FILE_EDIT não definido.', 'protectmywordpress');
+        }
 
         // Verifica a existência do .htaccess na pasta de uploads.
-        $upload_dir    = wp_upload_dir();
-        $htaccess_file = trailingslashit($upload_dir['basedir']) . '.htaccess';
-        $status['prevent_uploads_code_execution'] = (file_exists($htaccess_file))
-            ? 'OK'
-            : __('Erro: .htaccess não encontrado em uploads.', 'protectmywordpress');
+        if (empty($options['prevent_uploads_code_execution'])) {
+            $status['prevent_uploads_code_execution'] = __('Módulo desativado.', 'protectmywordpress');
+        } else {
+            $status['prevent_uploads_code_execution'] = file_exists($basedir . '.htaccess')
+                ? 'OK'
+                : __('Erro: .htaccess não encontrado em uploads.', 'protectmywordpress');
+        }
 
         // Verifica se o index.php na pasta de uploads existe.
-        $index_file = trailingslashit($upload_dir['basedir']) . 'index.php';
-        $status['disable_directory_browsing'] = (file_exists($index_file))
-            ? 'OK'
-            : __('Erro: index.php não existe em uploads.', 'protectmywordpress');
+        if (empty($options['disable_directory_browsing'])) {
+            $status['disable_directory_browsing'] = __('Módulo desativado.', 'protectmywordpress');
+        } else {
+            $status['disable_directory_browsing'] = file_exists($basedir . 'index.php')
+                ? 'OK'
+                : __('Erro: index.php não existe em uploads.', 'protectmywordpress');
+        }
 
         // Verifica se o XML-RPC está desabilitado.
-        $xmlrpc_status = apply_filters('xmlrpc_enabled', true);
-        $status['disable_xmlrpc'] = ($xmlrpc_status === false)
+        if (empty($options['disable_xmlrpc'])) {
+            $status['disable_xmlrpc'] = __('Módulo desativado.', 'protectmywordpress');
+        } else {
+            $status['disable_xmlrpc'] = (apply_filters('xmlrpc_enabled', true) === false)
+                ? 'OK'
+                : __('Erro: XML-RPC ativado.', 'protectmywordpress');
+        }
+
+        // Verifica se a versão do WP está oculta (wp_generator removido do wp_head).
+        if (empty($options['hide_wp_version'])) {
+            $status['hide_wp_version'] = __('Módulo desativado.', 'protectmywordpress');
+        } else {
+            $status['hide_wp_version'] = (has_action('wp_head', 'wp_generator') === false)
+                ? 'OK'
+                : __('Erro: wp_generator ainda ativo.', 'protectmywordpress');
+        }
+
+        // Módulos baseados em filtros: confirmados como ativos se a opção está habilitada.
+        $status['prevent_login_feedback'] = !empty($options['prevent_login_feedback'])
             ? 'OK'
-            : __('Erro: XML-RPC ativado.', 'protectmywordpress');
+            : __('Módulo desativado.', 'protectmywordpress');
+
+        $status['disable_user_enumeration'] = !empty($options['disable_user_enumeration'])
+            ? 'OK'
+            : __('Módulo desativado.', 'protectmywordpress');
+
+        $status['unset_x_powered_by'] = !empty($options['unset_x_powered_by'])
+            ? 'OK'
+            : __('Módulo desativado.', 'protectmywordpress');
+
+        $status['block_admin_username'] = !empty($options['block_admin_username'])
+            ? 'OK'
+            : __('Módulo desativado.', 'protectmywordpress');
+
+        $status['block_registration_same_login_display'] = !empty($options['block_registration_same_login_display'])
+            ? 'OK'
+            : __('Módulo desativado.', 'protectmywordpress');
 
         return $status;
     }
