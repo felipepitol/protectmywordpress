@@ -24,40 +24,21 @@ class PMWAdmin
     private $options;
 
     /**
+     * Hook suffix da página de configurações.
+     *
+     * @var string
+     */
+    private $hook_suffix;
+
+    /**
      * Construtor.
      */
     public function __construct()
     {
-        // Carrega as opções definidas ou utiliza os valores padrão.
-        $this->options = get_option('pmw_options', $this->defaultOptions());
-        // Adiciona o menu de configurações no admin.
+        $this->options = pmw_get_options();
         add_action('admin_menu', [$this, 'addAdminMenu']);
-        // Registra as configurações do plugin.
         add_action('admin_init', [$this, 'registerSettings']);
-        // Enfileira os arquivos CSS e JS do admin.
         add_action('admin_enqueue_scripts', [$this, 'enqueueAssets']);
-    }
-
-    /**
-     * Retorna as opções padrão do plugin.
-     *
-     * @return array
-     */
-    private function defaultOptions()
-    {
-        return [
-            'disable_registration'                  => 1,
-            'disable_file_editors'                  => 1,
-            'prevent_uploads_code_execution'        => 1,
-            'hide_wp_version'                       => 1,
-            'prevent_login_feedback'                => 1,
-            'disable_directory_browsing'            => 1,
-            'disable_user_enumeration'              => 1,
-            'unset_x_powered_by'                    => 1,
-            'block_admin_username'                  => 1,
-            'disable_xmlrpc'                        => 1,
-            'block_registration_same_login_display' => 1,
-        ];
     }
 
     /**
@@ -67,7 +48,7 @@ class PMWAdmin
      */
     public function addAdminMenu()
     {
-        add_options_page(
+        $this->hook_suffix = add_options_page(
             __('Configurações ProtectMyWordPress', 'protectmywordpress'),
             'ProtectMyWordPress',
             'manage_options',
@@ -77,32 +58,57 @@ class PMWAdmin
     }
 
     /**
-     * Registra as configurações do plugin.
+     * Registra as configurações do plugin com sanitização.
      *
      * @return void
      */
     public function registerSettings()
     {
-        register_setting('pmw_option_group', 'pmw_options');
+        register_setting('pmw_option_group', 'pmw_options', [
+            'sanitize_callback' => [$this, 'sanitizeOptions'],
+        ]);
     }
 
     /**
-     * Enfileira os arquivos CSS e JS para o admin.
+     * Sanitiza as opções antes de salvar no banco de dados.
      *
+     * @param array $input Valores recebidos do formulário.
+     * @return array Valores sanitizados.
+     */
+    public function sanitizeOptions($input)
+    {
+        $sanitized = [];
+        $valid_keys = array_keys(pmw_default_options());
+
+        foreach ($valid_keys as $key) {
+            $sanitized[$key] = !empty($input[$key]) ? 1 : 0;
+        }
+
+        return $sanitized;
+    }
+
+    /**
+     * Enfileira os arquivos CSS e JS apenas na página do plugin.
+     *
+     * @param string $hook_suffix O sufixo do hook da página atual.
      * @return void
      */
-    public function enqueueAssets()
+    public function enqueueAssets($hook_suffix)
     {
+        if ($hook_suffix !== $this->hook_suffix) {
+            return;
+        }
+
         wp_enqueue_style(
             'pmw_admin_css',
-            plugin_dir_url(__FILE__) . '../assets/css/admin-style.css',
+            PMW_PLUGIN_URL . 'assets/css/admin-style.css',
             [],
             PMW_VERSION
         );
 
         wp_enqueue_script(
             'pmw_admin_js',
-            plugin_dir_url(__FILE__) . '../assets/js/admin-script.js',
+            PMW_PLUGIN_URL . 'assets/js/admin-script.js',
             ['jquery'],
             PMW_VERSION,
             true
@@ -133,11 +139,11 @@ class PMWAdmin
             ],
             'prevent_uploads_code_execution' => [
                 'title'       => __('Prevenir Execução de Código em Uploads', 'protectmywordpress'),
-                'description' => __('Cria regras para impedir a execução de arquivos PHP na pasta uploads.', 'protectmywordpress'),
+                'description' => __('Cria regras para impedir a execução de arquivos PHP na pasta uploads (Apache).', 'protectmywordpress'),
             ],
             'hide_wp_version' => [
                 'title'       => __('Ocultar Versão do WP', 'protectmywordpress'),
-                'description' => __('Remove a versão do WordPress do header.', 'protectmywordpress'),
+                'description' => __('Remove a versão do WordPress do header e feeds.', 'protectmywordpress'),
             ],
             'prevent_login_feedback' => [
                 'title'       => __('Prevenir Feedback de Login', 'protectmywordpress'),
@@ -149,7 +155,7 @@ class PMWAdmin
             ],
             'disable_user_enumeration' => [
                 'title'       => __('Prevenir Enumeração de Usuários', 'protectmywordpress'),
-                'description' => __('Impede que usuários sejam enumerados através de queries.', 'protectmywordpress'),
+                'description' => __('Impede a enumeração de usuários via query string e REST API.', 'protectmywordpress'),
             ],
             'unset_x_powered_by' => [
                 'title'       => __('Remover X-Powered-By', 'protectmywordpress'),
@@ -180,32 +186,33 @@ class PMWAdmin
         ?>
         <div class="wrap pmw-wrap">
             <h1><?php esc_html_e('Configurações ProtectMyWordPress', 'protectmywordpress'); ?></h1>
-            
-            <!-- Grid com blocos de opções -->
-            <div class="pmw-grid">
-                <?php
-                $optionsData = $this->getOptionData();
-                foreach ($this->defaultOptions() as $key => $value) {
-                    $checked = isset($this->options[$key]) ? checked(1, $this->options[$key], false) : '';
-                    ?>
-                    <div class="pmw-option-block">
-                        <h2><?php echo esc_html($optionsData[$key]['title']); ?></h2>
-                        <p><?php echo esc_html($optionsData[$key]['description']); ?></p>
-                        <label class="switch">
-                            <input type="checkbox" name="pmw_options[<?php echo esc_attr($key); ?>]" value="1" <?php echo $checked; ?>>
-                            <span class="slider round"></span>
-                        </label>
-                    </div>
-                    <?php
-                }
-                ?>
-            </div>
 
-            <?php
-            // Campos padrão para salvar as opções.
-            settings_fields('pmw_option_group');
-            submit_button();
-            ?>
+            <form method="post" action="options.php">
+                <?php settings_fields('pmw_option_group'); ?>
+
+                <!-- Grid com blocos de opções -->
+                <div class="pmw-grid">
+                    <?php
+                    $optionsData = $this->getOptionData();
+                    $defaults    = pmw_default_options();
+                    foreach ($defaults as $key => $value) {
+                        $checked = isset($this->options[$key]) ? checked(1, $this->options[$key], false) : '';
+                        ?>
+                        <div class="pmw-option-block">
+                            <h2><?php echo esc_html($optionsData[$key]['title']); ?></h2>
+                            <p><?php echo esc_html($optionsData[$key]['description']); ?></p>
+                            <label class="pmw-switch">
+                                <input type="checkbox" name="pmw_options[<?php echo esc_attr($key); ?>]" value="1" <?php echo $checked; ?>>
+                                <span class="pmw-slider pmw-round"></span>
+                            </label>
+                        </div>
+                        <?php
+                    }
+                    ?>
+                </div>
+
+                <?php submit_button(); ?>
+            </form>
 
             <!-- Botão para checar status dos módulos -->
             <button id="pmw-check-status" class="button button-secondary">
@@ -215,7 +222,7 @@ class PMWAdmin
 
             <!-- Exibe a versão do plugin -->
             <div class="pmw-version">
-                <?php echo esc_html__('Versão: ', 'protectmywordpress') . PMW_VERSION; ?>
+                <?php echo esc_html__('Versão: ', 'protectmywordpress') . esc_html(PMW_VERSION); ?>
             </div>
         </div>
         <?php

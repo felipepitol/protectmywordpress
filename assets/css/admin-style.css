@@ -13,21 +13,21 @@
     border-radius: 8px;
 }
 
-/* Estilo do switch (conforme código fornecido) */
-.switch {
+/* Estilo do switch */
+.pmw-switch {
     position: relative;
     display: inline-block;
     width: 60px;
     height: 34px;
 }
 
-.switch input {
+.pmw-switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
 
-.slider {
+.pmw-slider {
     position: absolute;
     cursor: pointer;
     top: 0;
@@ -38,7 +38,7 @@
     transition: 0.4s;
 }
 
-.slider:before {
+.pmw-slider:before {
     position: absolute;
     content: "";
     height: 26px;
@@ -49,28 +49,28 @@
     transition: 0.4s;
 }
 
-input:checked + .slider {
+input:checked + .pmw-slider {
     background-color: #2196F3;
 }
 
-input:focus + .slider {
+input:focus + .pmw-slider {
     box-shadow: 0 0 1px #2196F3;
 }
 
-input:checked + .slider:before {
+input:checked + .pmw-slider:before {
     transform: translateX(26px);
 }
 
-.slider.round {
+.pmw-slider.pmw-round {
     border-radius: 34px;
 }
 
-.slider.round:before {
+.pmw-slider.pmw-round:before {
     border-radius: 50%;
 }
 
 /* Estilo para o toast de notificação */
-.toast {
+.pmw-toast {
     position: fixed;
     bottom: 20px;
     right: 20px;

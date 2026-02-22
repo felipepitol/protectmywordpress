@@ -28,32 +28,8 @@ class PMWSecurity
      */
     public function __construct()
     {
-        // Carrega as opções definidas ou utiliza os valores padrão.
-        $this->options = get_option('pmw_options', $this->defaultOptions());
-        // Aplica as medidas de segurança conforme as opções.
+        $this->options = pmw_get_options();
         $this->applySecurityMeasures();
-    }
-
-    /**
-     * Retorna as opções padrão do plugin.
-     *
-     * @return array
-     */
-    private function defaultOptions()
-    {
-        return [
-            'disable_registration'                  => 1,
-            'disable_file_editors'                  => 1,
-            'prevent_uploads_code_execution'        => 1,
-            'hide_wp_version'                       => 1,
-            'prevent_login_feedback'                => 1,
-            'disable_directory_browsing'            => 1,
-            'disable_user_enumeration'              => 1,
-            'unset_x_powered_by'                    => 1,
-            'block_admin_username'                  => 1,
-            'disable_xmlrpc'                        => 1,
-            'block_registration_same_login_display' => 1,
-        ];
     }
 
     /**
@@ -63,9 +39,9 @@ class PMWSecurity
      */
     public function applySecurityMeasures()
     {
-        // Desabilita o registro público de usuários.
+        // Desabilita o registro público de usuários via filtro (sem DB write a cada request).
         if (!empty($this->options['disable_registration'])) {
-            update_option('users_can_register', 0);
+            add_filter('option_users_can_register', '__return_zero');
         }
 
         // Desabilita os editores de arquivos internos.
@@ -73,9 +49,16 @@ class PMWSecurity
             if (!defined('DISALLOW_FILE_EDIT')) {
                 define('DISALLOW_FILE_EDIT', true);
             }
+
+            // Remove o submenu de edição como reforço, já que a constante pode ter sido definida tarde demais.
+            add_action('admin_menu', function () {
+                remove_submenu_page('themes.php', 'theme-editor.php');
+                remove_submenu_page('plugins.php', 'plugin-editor.php');
+            }, 999);
         }
 
-        // Previne a execução de código na pasta de uploads.
+        // Previne a execução de código na pasta de uploads (criação movida para activation hook).
+        // Mantém verificação no init apenas como fallback caso o arquivo tenha sido removido.
         if (!empty($this->options['prevent_uploads_code_execution'])) {
             add_action('init', [$this, 'createUploadsHtaccess']);
         }
@@ -83,6 +66,7 @@ class PMWSecurity
         // Oculta a versão do WordPress.
         if (!empty($this->options['hide_wp_version'])) {
             remove_action('wp_head', 'wp_generator');
+            add_filter('the_generator', '__return_empty_string');
         }
 
         // Previne feedback detalhado no login.
@@ -92,19 +76,20 @@ class PMWSecurity
             });
         }
 
-        // Desabilita a navegação de diretórios na pasta uploads.
+        // Desabilita a navegação de diretórios na pasta uploads (criação movida para activation hook).
         if (!empty($this->options['disable_directory_browsing'])) {
             add_action('init', [$this, 'createUploadsIndex']);
         }
 
-        // Previne a enumeração de usuários.
+        // Previne a enumeração de usuários (query param + REST API).
         if (!empty($this->options['disable_user_enumeration'])) {
             add_action('init', [$this, 'disableUserEnumeration']);
+            add_filter('rest_endpoints', [$this, 'disableUserRestEndpoint']);
         }
 
-        // Remove o header X-Powered-By.
+        // Remove o header X-Powered-By no momento correto.
         if (!empty($this->options['unset_x_powered_by'])) {
-            add_action('init', function () {
+            add_action('send_headers', function () {
                 header_remove('X-Powered-By');
             });
         }
@@ -139,7 +124,16 @@ class PMWSecurity
             $rules  = "<FilesMatch \"\.(php|php\.)$\">\n";
             $rules .= "deny from all\n";
             $rules .= "</FilesMatch>\n";
-            @file_put_contents($htaccess_file, $rules);
+
+            if (false === file_put_contents($htaccess_file, $rules)) {
+                if (is_admin()) {
+                    add_action('admin_notices', function () {
+                        echo '<div class="notice notice-error"><p>';
+                        esc_html_e('ProtectMyWordPress: Não foi possível criar .htaccess na pasta uploads. Verifique as permissões.', 'protectmywordpress');
+                        echo '</p></div>';
+                    });
+                }
+            }
         }
     }
 
@@ -155,7 +149,15 @@ class PMWSecurity
 
         if (!file_exists($index_file)) {
             $content = "<?php // Silence is golden.";
-            @file_put_contents($index_file, $content);
+            if (false === file_put_contents($index_file, $content)) {
+                if (is_admin()) {
+                    add_action('admin_notices', function () {
+                        echo '<div class="notice notice-error"><p>';
+                        esc_html_e('ProtectMyWordPress: Não foi possível criar index.php na pasta uploads. Verifique as permissões.', 'protectmywordpress');
+                        echo '</p></div>';
+                    });
+                }
+            }
         }
     }
 
@@ -166,11 +168,29 @@ class PMWSecurity
      */
     public function disableUserEnumeration()
     {
-        if (isset($_REQUEST['author'])) {
-            if (is_numeric($_REQUEST['author'])) {
-                $_REQUEST['author'] = '';
+        if (isset($_REQUEST['author']) && is_numeric($_REQUEST['author'])) {
+            wp_safe_redirect(home_url(), 301);
+            exit;
+        }
+    }
+
+    /**
+     * Remove o endpoint REST API de listagem de usuários para não-administradores.
+     *
+     * @param array $endpoints Array de endpoints REST.
+     * @return array
+     */
+    public function disableUserRestEndpoint($endpoints)
+    {
+        if (!current_user_can('list_users')) {
+            if (isset($endpoints['/wp/v2/users'])) {
+                unset($endpoints['/wp/v2/users']);
+            }
+            if (isset($endpoints['/wp/v2/users/(?P<id>[\d]+)'])) {
+                unset($endpoints['/wp/v2/users/(?P<id>[\d]+)']);
             }
         }
+        return $endpoints;
     }
 
     /**
@@ -201,8 +221,11 @@ class PMWSecurity
      */
     public function blockSameLoginDisplay($errors, $sanitized_user_login, $user_email)
     {
-        if (isset($_POST['display_name']) && strtolower($sanitized_user_login) === strtolower($_POST['display_name'])) {
-            $errors->add('displayname_error', __('Seu nome de exibição não pode ser igual ao nome de usuário.', 'protectmywordpress'));
+        if (isset($_POST['display_name'])) {
+            $display_name = sanitize_text_field(wp_unslash($_POST['display_name']));
+            if (strtolower($sanitized_user_login) === strtolower($display_name)) {
+                $errors->add('displayname_error', __('Seu nome de exibição não pode ser igual ao nome de usuário.', 'protectmywordpress'));
+            }
         }
         return $errors;
     }
@@ -210,14 +233,14 @@ class PMWSecurity
     /**
      * Verifica o status dos módulos de segurança.
      *
-     * Retorna um array associativo onde cada chave representa um módulo e seu valor indica
-     * "OK" ou uma mensagem de erro.
+     * Método estático para evitar efeitos colaterais ao ser chamado do AJAX handler.
      *
      * @return array
      */
-    public function checkModulesStatus()
+    public static function checkModulesStatus()
     {
-        $status = [];
+        $options = pmw_get_options();
+        $status  = [];
 
         // Verifica se o registro de usuários está desabilitado.
         $status['disable_registration'] = (get_option('users_can_register') == 0)

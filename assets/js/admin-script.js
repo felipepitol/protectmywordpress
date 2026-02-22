@@ -1,11 +1,11 @@
 jQuery(document).ready(function ($) {
     /**
-     * Exibe uma notificação tipo toast.
+     * Exibe uma notificação tipo toast (XSS-safe).
      *
      * @param {string} message A mensagem a ser exibida.
      */
     function showToast(message) {
-        var $toast = $('<div class="toast">' + message + '</div>');
+        var $toast = $('<div class="pmw-toast"></div>').text(message);
         $('body').append($toast);
         setTimeout(function () {
             $toast.fadeOut(500, function () {
@@ -15,16 +15,16 @@ jQuery(document).ready(function ($) {
     }
 
     // Quando um switch é alternado, dispara uma verificação via AJAX.
-    $('.switch input[type="checkbox"]').change(function () {
+    $('.pmw-switch input[type="checkbox"]').change(function () {
         var checkbox = $(this);
-        // Extrai o nome da opção a partir do atributo name (ex: pmw_options[disable_registration])
         var optionName = checkbox.attr('name').match(/\[(.*?)\]/)[1];
 
         $.ajax({
             url: pmw_ajax_obj.ajax_url,
             method: 'POST',
             data: {
-                action: 'pmw_check_status'
+                action: 'pmw_check_status',
+                nonce: pmw_ajax_obj.nonce
             },
             success: function (response) {
                 if (response.success) {
@@ -51,21 +51,25 @@ jQuery(document).ready(function ($) {
             url: pmw_ajax_obj.ajax_url,
             method: 'POST',
             data: {
-                action: 'pmw_check_status'
+                action: 'pmw_check_status',
+                nonce: pmw_ajax_obj.nonce
             },
             success: function (response) {
                 var $result = $('#pmw-status-result');
                 $result.empty();
                 if (response.success) {
                     $.each(response.data, function (key, status) {
-                        $result.append('<p>' + key + ': ' + status + '</p>');
+                        var $p = $('<p></p>').text(key + ': ' + status);
+                        $result.append($p);
                     });
                 } else {
-                    $result.append('<p>Erro ao verificar status.</p>');
+                    $result.append($('<p></p>').text('Erro ao verificar status.'));
                 }
             },
             error: function () {
-                $('#pmw-status-result').html('<p>Erro na comunicação com o servidor.</p>');
+                $('#pmw-status-result').empty().append(
+                    $('<p></p>').text('Erro na comunicação com o servidor.')
+                );
             }
         });
     });
