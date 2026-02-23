@@ -115,7 +115,7 @@ class PMWAdmin
         );
 
         wp_localize_script('pmw_admin_js', 'pmw_ajax_obj', [
-            'ajax_url'       => admin_url('admin-ajax.php'),
+            'ajax_url'       => wp_make_link_relative(admin_url('admin-ajax.php')),
             'nonce'          => wp_create_nonce('pmw_ajax_nonce'),
             'plugin_version' => PMW_VERSION,
         ]);

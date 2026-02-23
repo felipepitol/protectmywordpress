@@ -69,19 +69,35 @@ input:checked + .pmw-slider:before {
     border-radius: 50%;
 }
 
-/* Estilo para o toast de notificação */
-.pmw-toast {
+/* Container para empilhar toasts automaticamente */
+#pmw-toast-container {
     position: fixed;
     bottom: 20px;
     right: 20px;
-    background: #333;
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 8px;
+    z-index: 9999;
+    max-height: calc(100vh - 40px);
+    overflow: hidden;
+}
+
+/* Estilo base do toast */
+.pmw-toast {
+    background: #555;
     color: #fff;
-    padding: 15px;
+    padding: 12px 16px;
     border-radius: 4px;
-    opacity: 0.9;
-    z-index: 1000;
+    opacity: 0.95;
+    font-size: 13px;
+    max-width: 340px;
+    word-break: break-word;
     transition: opacity 0.5s ease;
 }
+
+.pmw-toast.pmw-ok       { background: #4CAF50; }
+.pmw-toast.pmw-error    { background: #e74c3c; }
+.pmw-toast.pmw-disabled { background: #888; }
 
 /* Versão do plugin */
 .pmw-version {
