@@ -1,0 +1,173 @@
+# English (US) translation for ProtectMyWordPress
+# Copyright (C) 2025 Felipe Pitol
+# This file is distributed under the same license as the ProtectMyWordPress plugin.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ProtectMyWordPress 1.1\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-02-22 00:00+0000\n"
+"PO-Revision-Date: 2026-02-22 00:00+0000\n"
+"Last-Translator: Felipe Pitol\n"
+"Language-Team: English\n"
+"Language: en_US\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+#: includes/functions.php
+msgid "Falha na verificação de segurança."
+msgstr "Security check failed."
+
+#: includes/functions.php
+msgid "Acesso negado."
+msgstr "Access denied."
+
+#: includes/class-admin.php
+msgid "Configurações ProtectMyWordPress"
+msgstr "ProtectMyWordPress Settings"
+
+#: includes/class-admin.php
+msgid "Desabilitar Registro"
+msgstr "Disable Registration"
+
+#: includes/class-admin.php
+msgid "Impede o registro de novos usuários."
+msgstr "Prevents new user registrations."
+
+#: includes/class-admin.php
+msgid "Desabilitar Editores de Arquivo"
+msgstr "Disable File Editors"
+
+#: includes/class-admin.php
+msgid "Desativa a edição de arquivos através do painel."
+msgstr "Disables file editing through the admin dashboard."
+
+#: includes/class-admin.php
+msgid "Prevenir Execução de Código em Uploads"
+msgstr "Prevent Code Execution in Uploads"
+
+#: includes/class-admin.php
+msgid "Cria regras para impedir a execução de arquivos PHP na pasta uploads (Apache)."
+msgstr "Creates rules to block PHP file execution in the uploads folder (Apache)."
+
+#: includes/class-admin.php
+msgid "Ocultar Versão do WP"
+msgstr "Hide WP Version"
+
+#: includes/class-admin.php
+msgid "Remove a versão do WordPress do header e feeds."
+msgstr "Removes the WordPress version from headers and feeds."
+
+#: includes/class-admin.php
+msgid "Prevenir Feedback de Login"
+msgstr "Prevent Login Feedback"
+
+#: includes/class-admin.php
+msgid "Exibe uma mensagem genérica em caso de falha no login."
+msgstr "Displays a generic message on login failure."
+
+#: includes/class-admin.php
+msgid "Desabilitar Navegação de Diretórios"
+msgstr "Disable Directory Browsing"
+
+#: includes/class-admin.php
+msgid "Previne a listagem de arquivos em diretórios, especialmente na pasta uploads."
+msgstr "Prevents directory listing, especially in the uploads folder."
+
+#: includes/class-admin.php
+msgid "Prevenir Enumeração de Usuários"
+msgstr "Prevent User Enumeration"
+
+#: includes/class-admin.php
+msgid "Impede a enumeração de usuários via query string e REST API."
+msgstr "Prevents user enumeration via query string and REST API."
+
+#: includes/class-admin.php
+msgid "Remover X-Powered-By"
+msgstr "Remove X-Powered-By"
+
+#: includes/class-admin.php
+msgid "Remove o header que revela a versão do PHP."
+msgstr "Removes the header that reveals the PHP version."
+
+#: includes/class-admin.php
+msgid "Bloquear Usuário Admin"
+msgstr "Block Admin Username"
+
+#: includes/class-admin.php
+msgid "Bloqueia o registro usando o nome de usuário \"admin\"."
+msgstr "Blocks registration using the \"admin\" username."
+
+#: includes/class-admin.php
+msgid "Desabilitar XML-RPC"
+msgstr "Disable XML-RPC"
+
+#: includes/class-admin.php
+msgid "Desativa a funcionalidade XML-RPC."
+msgstr "Disables XML-RPC functionality."
+
+#: includes/class-admin.php
+msgid "Bloquear Registro com Nome Igual"
+msgstr "Block Registration with Matching Display Name"
+
+#: includes/class-admin.php
+msgid "Evita registros onde o login e o nome de exibição são iguais."
+msgstr "Prevents registrations where the login and display name are identical."
+
+#: includes/class-admin.php
+msgid "Checar Status dos Módulos"
+msgstr "Check Module Status"
+
+#: includes/class-admin.php
+msgid "Versão: "
+msgstr "Version: "
+
+#: includes/class-security.php
+msgid "Login falhou."
+msgstr "Login failed."
+
+#: includes/class-security.php
+msgid "ProtectMyWordPress: Não foi possível criar .htaccess na pasta uploads. Verifique as permissões."
+msgstr "ProtectMyWordPress: Could not create .htaccess in the uploads folder. Please check file permissions."
+
+#: includes/class-security.php
+msgid "ProtectMyWordPress: Não foi possível criar index.php na pasta uploads. Verifique as permissões."
+msgstr "ProtectMyWordPress: Could not create index.php in the uploads folder. Please check file permissions."
+
+#: includes/class-security.php
+msgid "O nome de usuário \"admin\" não é permitido."
+msgstr "The username \"admin\" is not allowed."
+
+#: includes/class-security.php
+msgid "Seu nome de exibição não pode ser igual ao nome de usuário."
+msgstr "Your display name cannot be the same as your username."
+
+#: includes/class-security.php
+msgid "Módulo desativado."
+msgstr "Module disabled."
+
+#: includes/class-security.php
+msgid "Erro: users_can_register ativado."
+msgstr "Error: users_can_register is enabled."
+
+#: includes/class-security.php
+msgid "Erro: DISALLOW_FILE_EDIT não definido."
+msgstr "Error: DISALLOW_FILE_EDIT is not defined."
+
+#: includes/class-security.php
+msgid "Erro: .htaccess não encontrado em uploads."
+msgstr "Error: .htaccess not found in the uploads folder."
+
+#: includes/class-security.php
+msgid "Erro: index.php não existe em uploads."
+msgstr "Error: index.php does not exist in the uploads folder."
+
+#: includes/class-security.php
+msgid "Erro: XML-RPC ativado."
+msgstr "Error: XML-RPC is enabled."
+
+#: includes/class-security.php
+msgid "Erro: wp_generator ainda ativo."
+msgstr "Error: wp_generator is still active."
