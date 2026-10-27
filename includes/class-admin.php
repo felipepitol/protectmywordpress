@@ -196,13 +196,12 @@ class PMWAdmin
                     $optionsData = $this->getOptionData();
                     $defaults    = pmw_default_options();
                     foreach ($defaults as $key => $value) {
-                        $checked = isset($this->options[$key]) ? checked(1, $this->options[$key], false) : '';
                         ?>
                         <div class="pmw-option-block">
                             <h2><?php echo esc_html($optionsData[$key]['title']); ?></h2>
                             <p><?php echo esc_html($optionsData[$key]['description']); ?></p>
                             <label class="pmw-switch">
-                                <input type="checkbox" name="pmw_options[<?php echo esc_attr($key); ?>]" value="1" <?php echo $checked; ?>>
+                                <input type="checkbox" name="pmw_options[<?php echo esc_attr($key); ?>]" value="1" <?php checked(1, $this->options[$key] ?? 0); ?>>
                                 <span class="pmw-slider pmw-round"></span>
                             </label>
                         </div>

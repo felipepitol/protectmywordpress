@@ -38,8 +38,21 @@ function pmw_default_options()
  */
 function pmw_get_options()
 {
-    return get_option('pmw_options', pmw_default_options());
+    return wp_parse_args((array) get_option('pmw_options', []), pmw_default_options());
 }
+
+/**
+ * Aplica as regras do .htaccess de uploads assim que as opções são salvas.
+ *
+ * @param mixed $old_value Valor anterior.
+ * @param mixed $value     Novo valor.
+ * @return void
+ */
+function pmw_options_updated($old_value, $value)
+{
+    PMWSecurity::writeUploadsHtaccess(!empty($value['prevent_uploads_code_execution']));
+}
+add_action('update_option_pmw_options', 'pmw_options_updated', 10, 2);
 
 /**
  * Função AJAX para checar o status dos módulos.

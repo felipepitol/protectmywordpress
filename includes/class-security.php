@@ -17,6 +17,11 @@ if (!defined('ABSPATH')) {
 class PMWSecurity
 {
     /**
+     * Marcador do bloco de regras do plugin no .htaccess de uploads.
+     */
+    const HTACCESS_MARKER = 'ProtectMyWordPress';
+
+    /**
      * Array de opções do plugin.
      *
      * @var array
@@ -57,11 +62,9 @@ class PMWSecurity
             }, 999);
         }
 
-        // Previne a execução de código na pasta de uploads (criação movida para activation hook).
-        // Mantém verificação no init apenas como fallback caso o arquivo tenha sido removido.
-        if (!empty($this->options['prevent_uploads_code_execution'])) {
-            add_action('init', [$this, 'createUploadsHtaccess']);
-        }
+        // Regras de uploads: gravadas na ativação e ao salvar as opções; admin_init só repara
+        // o arquivo se ele tiver sido alterado (nunca escreve em requests do front-end).
+        add_action('admin_init', [$this, 'syncUploadsHtaccess']);
 
         // Oculta a versão do WordPress.
         if (!empty($this->options['hide_wp_version'])) {
@@ -69,22 +72,23 @@ class PMWSecurity
             add_filter('the_generator', '__return_empty_string');
         }
 
-        // Previne feedback detalhado no login.
+        // Previne feedback detalhado no login (só no formulário de login, para não esconder
+        // os erros de registro e de recuperação de senha).
         if (!empty($this->options['prevent_login_feedback'])) {
-            add_filter('login_errors', function () {
-                return __('Login falhou.', 'protectmywordpress');
-            });
+            add_filter('login_errors', [$this, 'genericLoginError']);
         }
 
-        // Desabilita a navegação de diretórios na pasta uploads (criação movida para activation hook).
+        // Desabilita a navegação de diretórios na pasta uploads.
         if (!empty($this->options['disable_directory_browsing'])) {
-            add_action('init', [$this, 'createUploadsIndex']);
+            add_action('admin_init', [$this, 'createUploadsIndex']);
         }
 
-        // Previne a enumeração de usuários (query param + REST API).
+        // Previne a enumeração de usuários (query param, REST API, sitemap e oEmbed).
         if (!empty($this->options['disable_user_enumeration'])) {
-            add_action('init', [$this, 'disableUserEnumeration']);
+            add_action('parse_request', [$this, 'disableUserEnumeration']);
             add_filter('rest_endpoints', [$this, 'disableUserRestEndpoint']);
+            add_filter('wp_sitemaps_add_provider', [$this, 'removeUsersSitemap'], 10, 2);
+            add_filter('oembed_response_data', [$this, 'removeOembedAuthor']);
         }
 
         // Remove o header X-Powered-By no momento correto.
@@ -99,9 +103,12 @@ class PMWSecurity
             add_filter('registration_errors', [$this, 'blockAdminUsername'], 10, 3);
         }
 
-        // Desabilita o XML-RPC.
+        // Desabilita o XML-RPC. xmlrpc_enabled só bloqueia métodos autenticados; sem esvaziar
+        // xmlrpc_methods, pingback.ping (usado em DDoS e varredura de portas) continua aberto.
         if (!empty($this->options['disable_xmlrpc'])) {
             add_filter('xmlrpc_enabled', '__return_false');
+            add_filter('xmlrpc_methods', '__return_empty_array');
+            add_filter('wp_headers', [$this, 'removePingbackHeader']);
         }
 
         // Bloqueia registros onde o login e o nome de exibição sejam iguais.
@@ -111,29 +118,102 @@ class PMWSecurity
     }
 
     /**
-     * Cria um arquivo .htaccess na pasta de uploads para prevenir a execução de arquivos PHP.
+     * Regras que bloqueiam a execução de PHP na pasta de uploads (Apache 2.2 e 2.4).
+     *
+     * Cobre extensões que alguns servidores também executam (.phtml, .php5, .phar...)
+     * e nomes com extensão dupla como "arquivo.php.jpg".
+     *
+     * @return string[]
+     */
+    public static function uploadsHtaccessRules()
+    {
+        return [
+            '<FilesMatch "\\.(?i:php[0-9]?|pht|phtml|phar|phps)(\\..*)?$">',
+            '    <IfModule mod_authz_core.c>',
+            '        Require all denied',
+            '    </IfModule>',
+            '    <IfModule !mod_authz_core.c>',
+            '        Order allow,deny',
+            '        Deny from all',
+            '    </IfModule>',
+            '</FilesMatch>',
+        ];
+    }
+
+    /**
+     * Caminho do .htaccess da pasta de uploads.
+     *
+     * @return string
+     */
+    private static function uploadsHtaccessPath()
+    {
+        $upload_dir = wp_upload_dir(null, false);
+        return trailingslashit($upload_dir['basedir']) . '.htaccess';
+    }
+
+    /**
+     * Grava (ou remove) o bloco de regras do plugin no .htaccess de uploads.
+     *
+     * Usa insert_with_markers(), que preserva regras de outros plugins no mesmo arquivo.
+     *
+     * @param bool $enabled Se as regras devem estar presentes.
+     * @return bool Se o arquivo ficou no estado esperado.
+     */
+    public static function writeUploadsHtaccess($enabled)
+    {
+        $file = self::uploadsHtaccessPath();
+
+        if (!$enabled && !file_exists($file)) {
+            return true;
+        }
+
+        // Remove as regras sem marcador gravadas pela versão 1.1 (Apache 2.2 apenas).
+        $legacy = "<FilesMatch \"\\.(php|php\\.)$\">\ndeny from all\n</FilesMatch>\n";
+        if (file_exists($file) && file_get_contents($file) === $legacy) {
+            file_put_contents($file, '');
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+
+        return insert_with_markers($file, self::HTACCESS_MARKER, $enabled ? self::uploadsHtaccessRules() : []);
+    }
+
+    /**
+     * Verifica se o bloco de regras do plugin está presente no .htaccess de uploads.
+     *
+     * @return bool
+     */
+    public static function uploadsHtaccessHasRules()
+    {
+        $file = self::uploadsHtaccessPath();
+        if (!file_exists($file)) {
+            return false;
+        }
+
+        require_once ABSPATH . 'wp-admin/includes/misc.php';
+
+        return extract_from_markers($file, self::HTACCESS_MARKER) === self::uploadsHtaccessRules();
+    }
+
+    /**
+     * Mantém o .htaccess de uploads de acordo com a opção (repara se foi alterado ou removido).
      *
      * @return void
      */
-    public function createUploadsHtaccess()
+    public function syncUploadsHtaccess()
     {
-        $upload_dir    = wp_upload_dir();
-        $htaccess_file = trailingslashit($upload_dir['basedir']) . '.htaccess';
+        $enabled = !empty($this->options['prevent_uploads_code_execution']);
 
-        if (!file_exists($htaccess_file)) {
-            $rules  = "<FilesMatch \"\.(php|php\.)$\">\n";
-            $rules .= "deny from all\n";
-            $rules .= "</FilesMatch>\n";
+        if ($enabled === self::uploadsHtaccessHasRules()) {
+            return;
+        }
 
-            if (false === file_put_contents($htaccess_file, $rules)) {
-                if (is_admin()) {
-                    add_action('admin_notices', function () {
-                        echo '<div class="notice notice-error"><p>';
-                        esc_html_e('ProtectMyWordPress: Não foi possível criar .htaccess na pasta uploads. Verifique as permissões.', 'protectmywordpress');
-                        echo '</p></div>';
-                    });
-                }
-            }
+        if (!self::writeUploadsHtaccess($enabled) && $enabled) {
+            add_action('admin_notices', function () {
+                echo '<div class="notice notice-error"><p>';
+                esc_html_e('ProtectMyWordPress: Não foi possível criar .htaccess na pasta uploads. Verifique as permissões.', 'protectmywordpress');
+                echo '</p></div>';
+            });
         }
     }
 
@@ -144,7 +224,7 @@ class PMWSecurity
      */
     public function createUploadsIndex()
     {
-        $upload_dir = wp_upload_dir();
+        $upload_dir = wp_upload_dir(null, false);
         $index_file = trailingslashit($upload_dir['basedir']) . 'index.php';
 
         if (!file_exists($index_file)) {
@@ -162,27 +242,39 @@ class PMWSecurity
     }
 
     /**
-     * Previne a enumeração de usuários sanitizando a query 'author'.
+     * Previne a enumeração de usuários via ?author=N no front-end.
      *
+     * Usa a query var já interpretada pelo WordPress, que vem tanto de GET quanto de POST
+     * (e aceita listas como "1,2"). O painel fica de fora: a lista de posts do admin também
+     * passa por parse_request e usa ?author=N para filtrar por autor.
+     *
+     * @param WP $wp Objeto da requisição atual.
      * @return void
      */
-    public function disableUserEnumeration()
+    public function disableUserEnumeration($wp)
     {
-        if (isset($_REQUEST['author']) && is_numeric($_REQUEST['author'])) {
+        if (is_admin()) {
+            return;
+        }
+
+        if (!empty($wp->query_vars['author'])) {
             wp_safe_redirect(home_url(), 301);
             exit;
         }
     }
 
     /**
-     * Remove o endpoint REST API de listagem de usuários para não-administradores.
+     * Remove os endpoints REST de listagem de usuários para quem não edita posts.
+     *
+     * Autores e editores mantêm o acesso, que o editor de blocos usa para listar autores;
+     * visitantes e assinantes ficam sem. /wp/v2/users/me não é afetado.
      *
      * @param array $endpoints Array de endpoints REST.
      * @return array
      */
     public function disableUserRestEndpoint($endpoints)
     {
-        if (!current_user_can('list_users')) {
+        if (!current_user_can('edit_posts')) {
             if (isset($endpoints['/wp/v2/users'])) {
                 unset($endpoints['/wp/v2/users']);
             }
@@ -191,6 +283,59 @@ class PMWSecurity
             }
         }
         return $endpoints;
+    }
+
+    /**
+     * Remove o sitemap de usuários, que lista a URL /author/<login> de cada autor.
+     *
+     * @param WP_Sitemaps_Provider|false $provider Provider do sitemap.
+     * @param string                     $name     Nome do provider.
+     * @return WP_Sitemaps_Provider|false
+     */
+    public function removeUsersSitemap($provider, $name)
+    {
+        return 'users' === $name ? false : $provider;
+    }
+
+    /**
+     * Remove nome e URL do autor da resposta oEmbed (a URL contém o login).
+     *
+     * @param array $data Dados da resposta oEmbed.
+     * @return array
+     */
+    public function removeOembedAuthor($data)
+    {
+        unset($data['author_name'], $data['author_url']);
+        return $data;
+    }
+
+    /**
+     * Mensagem genérica para falhas no formulário de login.
+     *
+     * @param string $error Mensagem original.
+     * @return string
+     */
+    public function genericLoginError($error)
+    {
+        global $action;
+
+        if (isset($action) && 'login' !== $action) {
+            return $error;
+        }
+
+        return __('Login falhou.', 'protectmywordpress');
+    }
+
+    /**
+     * Remove o header X-Pingback quando o XML-RPC está desabilitado.
+     *
+     * @param array $headers Headers HTTP.
+     * @return array
+     */
+    public function removePingbackHeader($headers)
+    {
+        unset($headers['X-Pingback']);
+        return $headers;
     }
 
     /**
@@ -221,7 +366,10 @@ class PMWSecurity
      */
     public function blockSameLoginDisplay($errors, $sanitized_user_login, $user_email)
     {
+        // O formulário de registro do core não tem nonce; leitura só para validação.
+        // phpcs:ignore WordPress.Security.NonceVerification.Missing
         if (isset($_POST['display_name'])) {
+            // phpcs:ignore WordPress.Security.NonceVerification.Missing
             $display_name = sanitize_text_field(wp_unslash($_POST['display_name']));
             if (strtolower($sanitized_user_login) === strtolower($display_name)) {
                 $errors->add('displayname_error', __('Seu nome de exibição não pode ser igual ao nome de usuário.', 'protectmywordpress'));
@@ -241,7 +389,7 @@ class PMWSecurity
     {
         $options    = pmw_get_options();
         $status     = [];
-        $upload_dir = wp_upload_dir();
+        $upload_dir = wp_upload_dir(null, false);
         $basedir    = trailingslashit($upload_dir['basedir']);
 
         // Verifica se o registro de usuários está desabilitado.
@@ -266,7 +414,8 @@ class PMWSecurity
         if (empty($options['prevent_uploads_code_execution'])) {
             $status['prevent_uploads_code_execution'] = __('Módulo desativado.', 'protectmywordpress');
         } else {
-            $status['prevent_uploads_code_execution'] = file_exists($basedir . '.htaccess')
+            // Confere o bloco de regras do plugin, não só a existência do arquivo.
+            $status['prevent_uploads_code_execution'] = self::uploadsHtaccessHasRules()
                 ? 'OK'
                 : __('Erro: .htaccess não encontrado em uploads.', 'protectmywordpress');
         }
@@ -284,7 +433,8 @@ class PMWSecurity
         if (empty($options['disable_xmlrpc'])) {
             $status['disable_xmlrpc'] = __('Módulo desativado.', 'protectmywordpress');
         } else {
-            $status['disable_xmlrpc'] = (apply_filters('xmlrpc_enabled', true) === false)
+            $status['disable_xmlrpc'] = (apply_filters('xmlrpc_enabled', true) === false
+                && apply_filters('xmlrpc_methods', ['pingback.ping' => 'this:pingback_ping']) === [])
                 ? 'OK'
                 : __('Erro: XML-RPC ativado.', 'protectmywordpress');
         }

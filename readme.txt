@@ -1,10 +1,10 @@
 === ProtectMyWordPress ===
-Contributors: Felipe Pitol
-Tags: segurança, wordpress, proteção, admin
-Requires at least: 5.0
-Tested up to: 6.7
+Contributors: felipepitol
+Tags: segurança, proteção, admin, xml-rpc, uploads
+Requires at least: 5.5
+Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.1
+Stable tag: 1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -19,6 +19,20 @@ O plugin apresenta uma interface administrativa moderna e amigável. Cada funcio
 3. Configure as opções em **Configurações > ProtectMyWordPress**.
 
 == Changelog ==
+= 1.2 =
+* Proteção de uploads: as regras agora são gravadas num bloco próprio do .htaccess (insert_with_markers), mesmo quando o arquivo já existe. Antes, um .htaccess de outro plugin ou do servidor impedia a gravação e o PHP continuava executando em uploads, com o status mostrando "OK".
+* Regras de uploads compatíveis com Apache 2.2 e 2.4, cobrindo também .phtml, .php5, .phar e extensões duplas (arquivo.php.jpg).
+* Status da proteção de uploads agora confere as regras, não só a existência do arquivo.
+* Regras removidas ao desativar ou desinstalar o plugin; regras antigas da 1.1 são migradas.
+* XML-RPC: pingback.ping e demais métodos agora ficam realmente desabilitados (xmlrpc_enabled só bloqueava métodos autenticados) e o header X-Pingback é removido.
+* Enumeração de usuários: sitemap de autores e autor no oEmbed removidos (ambos expunham o login).
+* Enumeração de usuários: o filtro por autor na lista de posts do painel (?author=N) não redireciona mais para a home.
+* Enumeração de usuários: ?author=N bloqueado também via POST e listas (1,2); endpoints REST de usuários liberados só para quem edita posts, então autores e editores voltam a ver a lista de autores no editor de blocos.
+* Mensagem genérica de login aplicada só ao formulário de login; erros de registro (ex.: usuário "admin" bloqueado) voltam a aparecer.
+* Opções novas usam o valor padrão em sites que atualizaram (pmw_get_options mescla os padrões).
+* Arquivos em uploads não são mais verificados em toda request do front-end.
+* Cabeçalho de licença no formato aceito pelo WordPress.org.
+
 = 1.1 =
 * Corrigido formulário de configurações (form tag ausente impedia salvar).
 * Corrigida falha de segurança no AJAX (nonce não era enviado).

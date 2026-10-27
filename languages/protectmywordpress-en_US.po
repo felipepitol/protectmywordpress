@@ -4,7 +4,7 @@
 #
 msgid ""
 msgstr ""
-"Project-Id-Version: ProtectMyWordPress 1.1\n"
+"Project-Id-Version: ProtectMyWordPress 1.2\n"
 "Report-Msgid-Bugs-To: \n"
 "POT-Creation-Date: 2026-02-22 00:00+0000\n"
 "PO-Revision-Date: 2026-02-22 00:00+0000\n"
