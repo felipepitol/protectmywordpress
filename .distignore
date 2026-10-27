@@ -7,3 +7,4 @@ bin
 dist
 tests
 translations
+.wordpress-org
