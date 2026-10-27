@@ -1,0 +1,215 @@
+# Copyright (C) 2026 Felipe Pitol
+# This file is distributed under the GPLv2 or later.
+msgid ""
+msgstr ""
+"Project-Id-Version: Hardenly – Security Hardening 1.2.0\n"
+"Report-Msgid-Bugs-To: https://wordpress.org/support/plugin/hardenly\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"POT-Creation-Date: 2026-10-27T20:26:15+00:00\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"X-Generator: WP-CLI 2.12.0\n"
+"X-Domain: hardenly\n"
+
+#. Plugin Name of the plugin
+#: hardenly.php
+msgid "Hardenly – Security Hardening"
+msgstr ""
+
+#. Plugin URI of the plugin
+#: hardenly.php
+msgid "https://github.com/felipepitol/protectmywordpress"
+msgstr ""
+
+#. Description of the plugin
+#: hardenly.php
+msgid "Turn on common security hardening measures with simple switches: block PHP in uploads, disable XML-RPC, stop user enumeration, hide the version and more."
+msgstr ""
+
+#. Author of the plugin
+#: hardenly.php
+msgid "Felipe Pitol"
+msgstr ""
+
+#. Author URI of the plugin
+#: hardenly.php
+msgid "https://felipepitol.me"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:60
+msgid "Hardenly replaces ProtectMyWordPress and has already imported its settings. Please deactivate and delete ProtectMyWordPress."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:72
+#: includes/class-hardenly-admin.php:233
+msgid "Hardenly Settings"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:91
+msgid "Settings"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:163
+msgid "Could not check the module status."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:164
+msgid "Could not reach the server."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:178
+msgid "Disable Registration"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:179
+msgid "Prevents new user registrations."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:182
+msgid "Disable File Editors"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:183
+msgid "Disables theme and plugin file editing in the dashboard."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:186
+msgid "Prevent Code Execution in Uploads"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:187
+msgid "Adds .htaccess rules that block PHP files in the uploads folder (Apache and LiteSpeed)."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:190
+msgid "Hide Version Number"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:191
+msgid "Removes the WordPress version from the page head and feeds."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:194
+msgid "Generic Login Errors"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:195
+msgid "Shows a generic message when a login fails, without saying whether the username exists."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:198
+msgid "Disable Directory Browsing"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:199
+msgid "Adds an empty index.php to the uploads folder so its files cannot be listed."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:202
+msgid "Prevent User Enumeration"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:203
+msgid "Hides usernames from ?author=N, the REST API, the users sitemap and oEmbed."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:206
+msgid "Remove X-Powered-By"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:207
+msgid "Removes the header that reveals the PHP version."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:210
+msgid "Block \"admin\" Username"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:211
+msgid "Blocks new registrations that use the username \"admin\"."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:214
+msgid "Disable XML-RPC"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:215
+msgid "Turns off XML-RPC, including pingbacks, and removes the X-Pingback header."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:218
+msgid "Hide Username as Display Name"
+msgstr ""
+
+#: includes/class-hardenly-admin.php:219
+msgid "Prevents users from saving a profile whose public display name is their username."
+msgstr ""
+
+#: includes/class-hardenly-admin.php:257
+msgid "Check Module Status"
+msgstr ""
+
+#. translators: %s: plugin version number.
+#: includes/class-hardenly-admin.php:265
+#, php-format
+msgid "Version %s"
+msgstr ""
+
+#: includes/class-hardenly-security.php:270
+msgid "Hardenly could not write the protection rules to .htaccess in the uploads folder. Please check the file permissions."
+msgstr ""
+
+#: includes/class-hardenly-security.php:274
+msgid "Hardenly could not create index.php in the uploads folder. Please check the file permissions."
+msgstr ""
+
+#: includes/class-hardenly-security.php:368
+msgid "Login failed."
+msgstr ""
+
+#: includes/class-hardenly-security.php:395
+msgid "The username \"admin\" is not allowed."
+msgstr ""
+
+#: includes/class-hardenly-security.php:420
+msgid "Your public display name cannot be the same as your username."
+msgstr ""
+
+#: includes/class-hardenly-security.php:449
+msgid "Error: users_can_register is enabled."
+msgstr ""
+
+#: includes/class-hardenly-security.php:453
+msgid "Error: DISALLOW_FILE_EDIT is not defined."
+msgstr ""
+
+#: includes/class-hardenly-security.php:458
+msgid "Error: the protection rules are missing from .htaccess in the uploads folder."
+msgstr ""
+
+#: includes/class-hardenly-security.php:462
+msgid "Error: index.php does not exist in the uploads folder."
+msgstr ""
+
+#: includes/class-hardenly-security.php:467
+msgid "Error: XML-RPC is enabled."
+msgstr ""
+
+#: includes/class-hardenly-security.php:471
+msgid "Error: wp_generator is still active."
+msgstr ""
+
+#: includes/class-hardenly-security.php:478
+msgid "Module disabled."
+msgstr ""
+
+#: includes/class-hardenly-security.php:483
+msgid "Active."
+msgstr ""
+
+#: includes/functions.php:92
+msgid "Access denied."
+msgstr ""
