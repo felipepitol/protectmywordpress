@@ -1,0 +1,9 @@
+.git
+.github
+.gitignore
+.distignore
+.claude
+bin
+dist
+tests
+translations

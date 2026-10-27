@@ -3,15 +3,15 @@ jQuery(document).ready(function ($) {
      * Exibe uma notificação tipo toast empilhada no canto inferior direito (XSS-safe).
      *
      * @param {string} message A mensagem a ser exibida.
-     * @param {string} type    'ok' | 'error' | 'disabled'
+     * @param {string} type    'ok' | 'error' | 'off'
      */
     function showToast(message, type) {
-        var $container = $('#pmw-toast-container');
+        var $container = $('#hardenly-toast-container');
         if (!$container.length) {
-            $container = $('<div id="pmw-toast-container"></div>');
+            $container = $('<div id="hardenly-toast-container"></div>');
             $('body').append($container);
         }
-        var $toast = $('<div class="pmw-toast pmw-' + type + '"></div>').text(message);
+        var $toast = $('<div class="hardenly-toast"></div>').addClass('hardenly-' + type).text(message);
         $container.append($toast);
         setTimeout(function () {
             $toast.fadeOut(500, function () { $(this).remove(); });
@@ -19,40 +19,31 @@ jQuery(document).ready(function ($) {
     }
 
     // Ao clicar no botão de checar status, preenche uma área com os resultados.
-    $('#pmw-check-status').click(function (e) {
+    $('#hardenly-check-status').on('click', function (e) {
         e.preventDefault();
+        var $result = $('#hardenly-status-result');
         $.ajax({
-            url: pmw_ajax_obj.ajax_url,
+            url: hardenlyAdmin.ajaxUrl,
             method: 'POST',
             data: {
-                action: 'pmw_check_status',
-                nonce: pmw_ajax_obj.nonce
+                action: 'hardenly_check_status',
+                nonce: hardenlyAdmin.nonce
             },
             success: function (response) {
-                var $result = $('#pmw-status-result');
                 $result.empty();
-                if (response.success) {
-                    $.each(response.data, function (key, status) {
-                        var type;
-                        if (status === 'OK') {
-                            type = 'ok';
-                        } else if (/^Err/i.test(status)) {
-                            type = 'error';
-                        } else {
-                            type = 'disabled';
-                        }
-                        var $p = $('<p></p>').text(key + ': ' + status);
-                        $result.append($p);
-                        showToast(key + ': ' + status, type);
-                    });
-                } else {
-                    $result.append($('<p></p>').text('Erro ao verificar status.'));
+                if (!response || !response.success) {
+                    $result.append($('<p></p>').text(hardenlyAdmin.i18n.checkFailed));
+                    return;
                 }
+                $.each(response.data, function (key, item) {
+                    var label = hardenlyAdmin.labels[key] || key;
+                    var text = label + ': ' + item.message;
+                    $result.append($('<p></p>').addClass('hardenly-' + item.state).text(text));
+                    showToast(text, item.state);
+                });
             },
             error: function () {
-                $('#pmw-status-result').empty().append(
-                    $('<p></p>').text('Erro na comunicação com o servidor.')
-                );
+                $result.empty().append($('<p></p>').text(hardenlyAdmin.i18n.requestError));
             }
         });
     });

@@ -1,8 +1,8 @@
 <?php
 /**
- * Funções auxiliares para o plugin ProtectMyWordPress.
+ * Funções auxiliares do Hardenly.
  *
- * @package ProtectMyWordPress
+ * @package Hardenly
  */
 
 if (!defined('ABSPATH')) {
@@ -14,7 +14,7 @@ if (!defined('ABSPATH')) {
  *
  * @return array
  */
-function pmw_default_options()
+function hardenly_default_options()
 {
     return [
         'disable_registration'                  => 1,
@@ -36,9 +36,30 @@ function pmw_default_options()
  *
  * @return array
  */
-function pmw_get_options()
+function hardenly_get_options()
 {
-    return wp_parse_args((array) get_option('pmw_options', []), pmw_default_options());
+    return wp_parse_args((array) get_option('hardenly_options', []), hardenly_default_options());
+}
+
+/**
+ * Migra a configuração da versão distribuída no GitHub como "ProtectMyWordPress".
+ *
+ * Copia as opções antigas (pmw_options) e remove o bloco antigo do .htaccess de uploads.
+ *
+ * @return void
+ */
+function hardenly_migrate_legacy()
+{
+    $legacy = get_option('pmw_options');
+
+    if (false !== $legacy) {
+        if (false === get_option('hardenly_options')) {
+            update_option('hardenly_options', wp_parse_args((array) $legacy, hardenly_default_options()));
+        }
+        delete_option('pmw_options');
+    }
+
+    Hardenly_Security::removeLegacyHtaccessBlock();
 }
 
 /**
@@ -48,29 +69,29 @@ function pmw_get_options()
  * @param mixed $value     Novo valor.
  * @return void
  */
-function pmw_options_updated($old_value, $value)
+function hardenly_options_updated($old_value, $value)
 {
-    PMWSecurity::writeUploadsHtaccess(!empty($value['prevent_uploads_code_execution']));
+    Hardenly_Security::writeUploadsHtaccess(!empty($value['prevent_uploads_code_execution']));
+
+    if (!empty($value['disable_directory_browsing'])) {
+        Hardenly_Security::writeUploadsIndex();
+    }
 }
-add_action('update_option_pmw_options', 'pmw_options_updated', 10, 2);
+add_action('update_option_hardenly_options', 'hardenly_options_updated', 10, 2);
 
 /**
  * Função AJAX para checar o status dos módulos.
+ *
+ * @return void
  */
-function pmw_ajax_check_status()
+function hardenly_ajax_check_status()
 {
-    // Verifica nonce para segurança.
-    if (!isset($_POST['nonce']) || !wp_verify_nonce(sanitize_text_field(wp_unslash($_POST['nonce'])), 'pmw_ajax_nonce')) {
-        wp_send_json_error(__('Falha na verificação de segurança.', 'protectmywordpress'));
-    }
+    check_ajax_referer('hardenly_check_status', 'nonce');
 
-    // Verifica se o usuário tem permissão.
     if (!current_user_can('manage_options')) {
-        wp_send_json_error(__('Acesso negado.', 'protectmywordpress'));
+        wp_send_json_error(__('Access denied.', 'hardenly'), 403);
     }
 
-    // Usa método estático para obter o status sem efeitos colaterais.
-    $status = PMWSecurity::checkModulesStatus();
-    wp_send_json_success($status);
+    wp_send_json_success(Hardenly_Security::checkModulesStatus());
 }
-add_action('wp_ajax_pmw_check_status', 'pmw_ajax_check_status');
+add_action('wp_ajax_hardenly_check_status', 'hardenly_ajax_check_status');
