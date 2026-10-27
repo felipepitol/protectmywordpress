@@ -3,10 +3,13 @@
  * Plugin Name: ProtectMyWordPress
  * Plugin URI: https://felipepitol.me/protectmywordpress
  * Description: Plugin de segurança para WordPress com diversas medidas de proteção e interface moderna.
- * Version: 1.1
+ * Version: 1.2
+ * Requires at least: 5.5
+ * Requires PHP: 7.4
  * Author: Felipe Pitol
  * Author URI: https://felipepitol.me
- * License: GPL2
+ * License: GPLv2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  * Text Domain: protectmywordpress
  * Domain Path: /languages
  *
@@ -20,7 +23,7 @@ if (!defined('ABSPATH')) {
 // Define constantes para o plugin.
 define('PMW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PMW_PLUGIN_URL', plugin_dir_url(__FILE__));
-define('PMW_VERSION', '1.1');
+define('PMW_VERSION', '1.2');
 
 // Carrega os arquivos necessários (functions.php primeiro, pois contém pmw_default_options/pmw_get_options).
 require_once PMW_PLUGIN_DIR . 'includes/functions.php';
@@ -47,23 +50,17 @@ function pmw_activate()
         update_option('pmw_options', pmw_default_options());
     }
 
-    // Cria arquivos de proteção na pasta uploads.
-    $upload_dir = wp_upload_dir();
-    $basedir    = trailingslashit($upload_dir['basedir']);
+    $options = pmw_get_options();
 
-    // .htaccess para bloquear execução de PHP.
-    $htaccess_file = $basedir . '.htaccess';
-    if (!file_exists($htaccess_file)) {
-        $rules  = "<FilesMatch \"\.(php|php\.)$\">\n";
-        $rules .= "deny from all\n";
-        $rules .= "</FilesMatch>\n";
-        file_put_contents($htaccess_file, $rules);
-    }
+    // Cria os arquivos de proteção na pasta uploads.
+    PMWSecurity::writeUploadsHtaccess(!empty($options['prevent_uploads_code_execution']));
 
-    // index.php para impedir listagem de diretório.
-    $index_file = $basedir . 'index.php';
-    if (!file_exists($index_file)) {
-        file_put_contents($index_file, "<?php // Silence is golden.");
+    if (!empty($options['disable_directory_browsing'])) {
+        $upload_dir = wp_upload_dir(null, false);
+        $index_file = trailingslashit($upload_dir['basedir']) . 'index.php';
+        if (!file_exists($index_file)) {
+            file_put_contents($index_file, "<?php // Silence is golden.");
+        }
     }
 }
 
@@ -77,9 +74,9 @@ register_deactivation_hook(__FILE__, 'pmw_deactivate');
  */
 function pmw_deactivate()
 {
-    // Remove o filtro que força users_can_register = 0,
-    // restaurando o comportamento padrão do WordPress.
-    remove_filter('option_users_can_register', '__return_zero');
+    // Remove as regras do plugin do .htaccess de uploads (regras de outros plugins são mantidas).
+    // Os filtros (registro, XML-RPC etc.) deixam de valer sozinhos quando o plugin não carrega.
+    PMWSecurity::writeUploadsHtaccess(false);
 }
 
 // Inicializa as classes.
