@@ -66,8 +66,8 @@ Install and activate Hardenly. It imports your ProtectMyWordPress settings and r
 
 == Screenshots ==
 
-1. Settings page with one switch per measure.
-2. Module status check.
+1. Protections grouped by area, with a meter that shows how many are on.
+2. The status check shows whether each protection is working.
 
 == Changelog ==
 
