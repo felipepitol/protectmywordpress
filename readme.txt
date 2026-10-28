@@ -1,4 +1,4 @@
-=== Hardenly – Security Hardening ===
+=== Hardenly ===
 Contributors: felipepitol
 Tags: security, hardening, xml-rpc, user enumeration, uploads
 Requires at least: 5.5
