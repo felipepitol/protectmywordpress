@@ -139,14 +139,14 @@ class Hardenly_Admin
             'hardenly-admin',
             HARDENLY_PLUGIN_URL . 'assets/css/admin-style.css',
             [],
-            HARDENLY_VERSION
+            $this->assetVersion('assets/css/admin-style.css')
         );
 
         wp_enqueue_script(
             'hardenly-admin',
             HARDENLY_PLUGIN_URL . 'assets/js/admin-script.js',
             ['jquery'],
-            HARDENLY_VERSION,
+            $this->assetVersion('assets/js/admin-script.js'),
             true
         );
 
@@ -167,6 +167,20 @@ class Hardenly_Admin
                 'summaryOk'    => __('All %s active protections are working.', 'hardenly'),
             ],
         ]);
+    }
+
+    /**
+     * Versão do asset com a data de modificação do arquivo, para que caches (LiteSpeed, CDN,
+     * navegador) não sirvam um CSS/JS antigo quando o arquivo muda sem troca de versão.
+     *
+     * @param string $path Caminho relativo à pasta do plugin.
+     * @return string
+     */
+    private function assetVersion($path)
+    {
+        $mtime = @filemtime(HARDENLY_PLUGIN_DIR . $path); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+
+        return $mtime ? HARDENLY_VERSION . '.' . $mtime : HARDENLY_VERSION;
     }
 
     /**
