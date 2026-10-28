@@ -1,6 +1,6 @@
 <?php
 /**
- * Plugin Name: Hardenly – Security Hardening
+ * Plugin Name: Hardenly
  * Plugin URI: https://github.com/felipepitol/protectmywordpress
  * Description: Turn on common security hardening measures with simple switches: block PHP in uploads, disable XML-RPC, stop user enumeration, hide the version and more.
  * Version: 1.2.0

@@ -14,7 +14,7 @@ msgstr ""
 
 #. Plugin Name of the plugin
 #: hardenly.php
-msgid "Hardenly – Security Hardening"
+msgid "Hardenly"
 msgstr "Hardenly – Proteção e Hardening de Segurança"
 
 #. Plugin URI of the plugin
