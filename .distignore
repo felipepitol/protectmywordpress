@@ -1,0 +1,12 @@
+.git
+.github
+.gitignore
+.distignore
+.claude
+bin
+dist
+tests
+translations
+.wordpress-org
+.DS_Store
+.gstack

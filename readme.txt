@@ -1,71 +1,95 @@
-=== ProtectMyWordPress ===
+=== Hardenly – Security Hardening ===
 Contributors: felipepitol
-Tags: segurança, proteção, admin, xml-rpc, uploads
+Tags: security, hardening, xml-rpc, user enumeration, uploads
 Requires at least: 5.5
 Tested up to: 7.1
 Requires PHP: 7.4
-Stable tag: 1.2
+Stable tag: 1.2.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
-ProtectMyWordPress é um plugin de segurança para WordPress que oferece diversas medidas de proteção, como a desabilitação de registro de usuários, ocultação da versão do WP, prevenção de execução de código na pasta de uploads, e muito mais. Qualquer sugestão de otimização pode ser feito usando o repositório do Github: https://github.com/felipepitol/protectmywordpress.
+Common security hardening with simple switches: block PHP in uploads, disable XML-RPC, stop user enumeration, hide the version and more.
 
-== Descrição ==
-O plugin apresenta uma interface administrativa moderna e amigável. Cada funcionalidade é apresentada em um bloco com uma breve descrição e um switch para ativação ou desativação. Há também uma opção para verificar o status dos módulos de segurança, com feedback visual.
+== Description ==
 
-== Instalação ==
-1. Faça o upload dos arquivos do plugin para a pasta `/wp-content/plugins/protectmywordpress`.
-2. Ative o plugin através do menu "Plugins" no WordPress.
-3. Configure as opções em **Configurações > ProtectMyWordPress**.
+Hardenly applies a set of well-known hardening measures that most sites should have, each behind its own switch. There is no firewall, no scanner and no account to create: it changes how WordPress behaves, and you can see and undo every change.
+
+**What it can do**
+
+* **Prevent code execution in uploads** – adds rules to `wp-content/uploads/.htaccess` that block PHP files, including `.phtml`, `.php5`, `.phar` and double extensions such as `image.php.jpg`. Rules from other plugins in the same file are kept.
+* **Disable XML-RPC** – turns off every XML-RPC method, including `pingback.ping`, which is often abused for DDoS amplification, and removes the `X-Pingback` header.
+* **Prevent user enumeration** – stops `?author=N` lookups and hides usernames from the REST API for visitors, the users sitemap and oEmbed responses. Authors and editors keep the author list in the block editor.
+* **Generic login errors** – the login form no longer tells attackers whether a username exists. Registration errors are still shown.
+* **Disable file editors** – removes the theme and plugin file editors from the dashboard.
+* **Disable registration** – keeps "Anyone can register" off.
+* **Block the "admin" username** for new registrations.
+* **Hide username as display name** – users cannot save a profile whose public display name is their login.
+* **Hide the WordPress version** from the page head and feeds.
+* **Remove the X-Powered-By header** that reveals the PHP version.
+* **Disable directory browsing** in the uploads folder.
+
+A **Check Module Status** button on the settings page confirms that each measure is really in effect on your server, for example that the `.htaccess` rules are present, not only that the switch is on.
+
+**Privacy**
+
+Hardenly does not collect data, does not send anything to external servers and does not add cookies.
+
+== Installation ==
+
+1. Install Hardenly from **Plugins → Add New**, or upload the `hardenly` folder to `/wp-content/plugins/`.
+2. Activate the plugin. All measures start enabled.
+3. Go to **Settings → Hardenly** to turn individual measures off, then click **Check Module Status**.
+
+== Frequently Asked Questions ==
+
+= Does it work on Nginx? =
+
+Most measures work on any server. Blocking PHP in uploads and disabling directory browsing rely on `.htaccess`, which Apache and LiteSpeed read but Nginx ignores. On Nginx, add an equivalent rule to your server configuration, for example:
+
+`location ~* /wp-content/uploads/.*\.(php[0-9]?|pht|phtml|phar|phps)$ { deny all; }`
+
+= Will it break my site? =
+
+Each measure can be turned off on its own. Things to know before enabling them:
+
+* Disabling XML-RPC stops the Jetpack connection and the legacy WordPress mobile apps.
+* Disabling registration overrides the "Anyone can register" setting.
+* Blocking PHP in uploads affects any plugin that executes PHP files stored in the uploads folder, which is rare and usually a red flag.
+
+= What happens when I deactivate or delete the plugin? =
+
+Deactivating removes the plugin's rules from the uploads `.htaccess` (other rules stay) and every other measure stops applying. Deleting the plugin also removes its settings.
+
+= I used ProtectMyWordPress from GitHub. How do I move to Hardenly? =
+
+Install and activate Hardenly. It imports your ProtectMyWordPress settings and replaces its `.htaccess` rules. Then deactivate and delete ProtectMyWordPress.
+
+== Screenshots ==
+
+1. Protections grouped by area, with a meter that shows how many are on.
+2. The status check shows whether each protection is working.
 
 == Changelog ==
-= 1.2 =
-* Proteção de uploads: as regras agora são gravadas num bloco próprio do .htaccess (insert_with_markers), mesmo quando o arquivo já existe. Antes, um .htaccess de outro plugin ou do servidor impedia a gravação e o PHP continuava executando em uploads, com o status mostrando "OK".
-* Regras de uploads compatíveis com Apache 2.2 e 2.4, cobrindo também .phtml, .php5, .phar e extensões duplas (arquivo.php.jpg).
-* Status da proteção de uploads agora confere as regras, não só a existência do arquivo.
-* Regras removidas ao desativar ou desinstalar o plugin; regras antigas da 1.1 são migradas.
-* XML-RPC: pingback.ping e demais métodos agora ficam realmente desabilitados (xmlrpc_enabled só bloqueava métodos autenticados) e o header X-Pingback é removido.
-* Enumeração de usuários: sitemap de autores e autor no oEmbed removidos (ambos expunham o login).
-* Enumeração de usuários: o filtro por autor na lista de posts do painel (?author=N) não redireciona mais para a home.
-* Enumeração de usuários: ?author=N bloqueado também via POST e listas (1,2); endpoints REST de usuários liberados só para quem edita posts, então autores e editores voltam a ver a lista de autores no editor de blocos.
-* Mensagem genérica de login aplicada só ao formulário de login; erros de registro (ex.: usuário "admin" bloqueado) voltam a aparecer.
-* Opções novas usam o valor padrão em sites que atualizaram (pmw_get_options mescla os padrões).
-* Arquivos em uploads não são mais verificados em toda request do front-end.
-* Cabeçalho de licença no formato aceito pelo WordPress.org.
+
+= 1.2.0 =
+* Renamed to Hardenly for the WordPress.org Plugin Directory. Settings and `.htaccess` rules from ProtectMyWordPress are migrated on activation.
+* Uploads: rules are written in their own block even when `uploads/.htaccess` already exists. Before, an existing file meant no rules were added while the status still reported OK.
+* Uploads: rules work on Apache 2.2 and 2.4 and also cover `.phtml`, `.php5`, `.phar` and double extensions. They are removed on deactivation.
+* XML-RPC: pingbacks are now disabled too, and the `X-Pingback` header is removed.
+* User enumeration: also covers the users sitemap, oEmbed, POST requests and lists such as `?author=1,2`. The posts list filter in the dashboard and the block editor author list work again.
+* Generic login errors no longer hide registration errors.
+* "Hide username as display name" now checks profile updates. Before, it read a field that the registration form does not have, so it never applied.
+* The status check reports the state of each measure, translated, with clear labels.
+* All strings are in English and ready for translation.
 
 = 1.1 =
-* Corrigido formulário de configurações (form tag ausente impedia salvar).
-* Corrigida falha de segurança no AJAX (nonce não era enviado).
-* Corrigida vulnerabilidade XSS nas notificações JavaScript.
-* AJAX handler não re-instancia mais a classe de segurança (sem efeitos colaterais).
-* Opção de desabilitar registro agora usa filtro em vez de escrita no banco a cada request.
-* Reforço na desabilitação do editor de arquivos (remoção de submenus).
-* Adicionada sanitização de opções ao salvar (sanitize_callback).
-* Assets CSS/JS carregados apenas na página do plugin.
-* Sanitização de $_POST['display_name'] e nonce no handler AJAX.
-* Opções padrão centralizadas em função compartilhada (pmw_default_options).
-* Prevenção de enumeração de usuários agora inclui REST API.
-* Adicionados hooks de ativação, desativação e desinstalação.
-* Adicionado load_plugin_textdomain para suporte a traduções.
-* Substituído @file_put_contents por tratamento de erros com admin notices.
-* Classes CSS prefixadas com pmw- para evitar conflitos.
-* Header X-Powered-By removido via send_headers (timing correto).
-* Atualizado readme.txt com versões corretas.
+* Fixed the settings form, the AJAX nonce and an XSS issue in notifications.
+* Options are sanitized on save and assets load only on the settings page.
 
 = 1.0 =
-* Versão inicial com medidas de segurança e interface moderna.
-* Inclusão de verificação de status dos módulos via AJAX.
-* Interface UX/UI aprimorada e feedback com toast notifications.
+* First release, as ProtectMyWordPress.
 
-== FAQ ==
-= O plugin coleta dados dos usuários? =
-Não. O plugin não rastreia nem coleta nenhum dado do usuário sem o seu consentimento.
+== Upgrade Notice ==
 
-= O plugin funciona com Nginx? =
-A maioria das funcionalidades funciona em qualquer servidor. A prevenção de execução de PHP na pasta uploads utiliza .htaccess, que é específico do Apache. Para Nginx, configure regras equivalentes manualmente.
-
-== Notas de Privacidade ==
-Este plugin não envia dados para servidores externos. Todo o processamento é realizado localmente, garantindo a privacidade dos dados.
-
-== Licença ==
-Este plugin é distribuído sob a licença GPLv2 ou superior.
+= 1.2.0 =
+Fixes uploads protection on sites that already had an .htaccess file in uploads, and fully disables XML-RPC pingbacks. Recommended for all users.

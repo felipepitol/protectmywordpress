@@ -1,10 +1,10 @@
 <?php
 /**
- * Classe PMWSecurity
+ * Classe Hardenly_Security
  *
  * Responsável por aplicar as medidas de segurança do plugin e fornecer verificação de status.
  *
- * @package ProtectMyWordPress
+ * @package Hardenly
  */
 
 if (!defined('ABSPATH')) {
@@ -12,14 +12,19 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Class PMWSecurity
+ * Class Hardenly_Security
  */
-class PMWSecurity
+class Hardenly_Security
 {
     /**
      * Marcador do bloco de regras do plugin no .htaccess de uploads.
      */
-    const HTACCESS_MARKER = 'ProtectMyWordPress';
+    const HTACCESS_MARKER = 'Hardenly';
+
+    /**
+     * Marcador usado pela versão distribuída como "ProtectMyWordPress".
+     */
+    const LEGACY_HTACCESS_MARKER = 'ProtectMyWordPress';
 
     /**
      * Array de opções do plugin.
@@ -33,7 +38,7 @@ class PMWSecurity
      */
     public function __construct()
     {
-        $this->options = pmw_get_options();
+        $this->options = hardenly_get_options();
         $this->applySecurityMeasures();
     }
 
@@ -52,7 +57,8 @@ class PMWSecurity
         // Desabilita os editores de arquivos internos.
         if (!empty($this->options['disable_file_editors'])) {
             if (!defined('DISALLOW_FILE_EDIT')) {
-                define('DISALLOW_FILE_EDIT', true);
+                // Constante do core do WordPress, não do plugin.
+                define('DISALLOW_FILE_EDIT', true); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedConstantFound
             }
 
             // Remove o submenu de edição como reforço, já que a constante pode ter sido definida tarde demais.
@@ -64,7 +70,7 @@ class PMWSecurity
 
         // Regras de uploads: gravadas na ativação e ao salvar as opções; admin_init só repara
         // o arquivo se ele tiver sido alterado (nunca escreve em requests do front-end).
-        add_action('admin_init', [$this, 'syncUploadsHtaccess']);
+        add_action('admin_init', [$this, 'syncUploadsFiles']);
 
         // Oculta a versão do WordPress.
         if (!empty($this->options['hide_wp_version'])) {
@@ -76,11 +82,6 @@ class PMWSecurity
         // os erros de registro e de recuperação de senha).
         if (!empty($this->options['prevent_login_feedback'])) {
             add_filter('login_errors', [$this, 'genericLoginError']);
-        }
-
-        // Desabilita a navegação de diretórios na pasta uploads.
-        if (!empty($this->options['disable_directory_browsing'])) {
-            add_action('admin_init', [$this, 'createUploadsIndex']);
         }
 
         // Previne a enumeração de usuários (query param, REST API, sitemap e oEmbed).
@@ -111,10 +112,43 @@ class PMWSecurity
             add_filter('wp_headers', [$this, 'removePingbackHeader']);
         }
 
-        // Bloqueia registros onde o login e o nome de exibição sejam iguais.
+        // Impede salvar um perfil cujo nome de exibição público seja o próprio login.
         if (!empty($this->options['block_registration_same_login_display'])) {
-            add_filter('registration_errors', [$this, 'blockSameLoginDisplay'], 10, 3);
+            add_action('user_profile_update_errors', [$this, 'blockSameLoginDisplay'], 10, 3);
         }
+    }
+
+    /**
+     * Retorna o WP_Filesystem quando ele pode gravar diretamente (sem pedir credenciais).
+     *
+     * @return WP_Filesystem_Base|null
+     */
+    private static function filesystem()
+    {
+        global $wp_filesystem;
+
+        require_once ABSPATH . 'wp-admin/includes/file.php';
+
+        if ('direct' !== get_filesystem_method()) {
+            return null;
+        }
+
+        if (!$wp_filesystem instanceof WP_Filesystem_Base && !WP_Filesystem()) {
+            return null;
+        }
+
+        return $wp_filesystem;
+    }
+
+    /**
+     * Pasta de uploads (com barra no final).
+     *
+     * @return string
+     */
+    private static function uploadsDir()
+    {
+        $upload_dir = wp_upload_dir(null, false);
+        return trailingslashit($upload_dir['basedir']);
     }
 
     /**
@@ -141,17 +175,6 @@ class PMWSecurity
     }
 
     /**
-     * Caminho do .htaccess da pasta de uploads.
-     *
-     * @return string
-     */
-    private static function uploadsHtaccessPath()
-    {
-        $upload_dir = wp_upload_dir(null, false);
-        return trailingslashit($upload_dir['basedir']) . '.htaccess';
-    }
-
-    /**
      * Grava (ou remove) o bloco de regras do plugin no .htaccess de uploads.
      *
      * Usa insert_with_markers(), que preserva regras de outros plugins no mesmo arquivo.
@@ -161,21 +184,43 @@ class PMWSecurity
      */
     public static function writeUploadsHtaccess($enabled)
     {
-        $file = self::uploadsHtaccessPath();
+        $file = self::uploadsDir() . '.htaccess';
 
         if (!$enabled && !file_exists($file)) {
             return true;
         }
 
-        // Remove as regras sem marcador gravadas pela versão 1.1 (Apache 2.2 apenas).
-        $legacy = "<FilesMatch \"\\.(php|php\\.)$\">\ndeny from all\n</FilesMatch>\n";
-        if (file_exists($file) && file_get_contents($file) === $legacy) {
-            file_put_contents($file, '');
-        }
-
         require_once ABSPATH . 'wp-admin/includes/misc.php';
 
         return insert_with_markers($file, self::HTACCESS_MARKER, $enabled ? self::uploadsHtaccessRules() : []);
+    }
+
+    /**
+     * Remove as regras gravadas pelas versões "ProtectMyWordPress" (1.1 sem marcador, 1.2 com marcador).
+     *
+     * @return void
+     */
+    public static function removeLegacyHtaccessBlock()
+    {
+        $file = self::uploadsDir() . '.htaccess';
+        $fs   = self::filesystem();
+
+        if (!$fs || !$fs->exists($file)) {
+            return;
+        }
+
+        $content = (string) $fs->get_contents($file);
+        $legacy  = "<FilesMatch \"\\.(php|php\\.)$\">\ndeny from all\n</FilesMatch>\n";
+
+        $cleaned = $content === $legacy ? '' : preg_replace(
+            '/\n?# BEGIN ' . self::LEGACY_HTACCESS_MARKER . '\n.*?# END ' . self::LEGACY_HTACCESS_MARKER . '\n?/s',
+            "\n",
+            $content
+        );
+
+        if ($cleaned !== $content) {
+            $fs->put_contents($file, ltrim($cleaned, "\n"), FS_CHMOD_FILE);
+        }
     }
 
     /**
@@ -185,7 +230,7 @@ class PMWSecurity
      */
     public static function uploadsHtaccessHasRules()
     {
-        $file = self::uploadsHtaccessPath();
+        $file = self::uploadsDir() . '.htaccess';
         if (!file_exists($file)) {
             return false;
         }
@@ -196,49 +241,61 @@ class PMWSecurity
     }
 
     /**
-     * Mantém o .htaccess de uploads de acordo com a opção (repara se foi alterado ou removido).
+     * Cria um index.php vazio na pasta de uploads para impedir a listagem do diretório.
+     *
+     * @return bool Se o arquivo existe ao final.
+     */
+    public static function writeUploadsIndex()
+    {
+        $file = self::uploadsDir() . 'index.php';
+
+        if (file_exists($file)) {
+            return true;
+        }
+
+        $fs = self::filesystem();
+
+        return $fs && $fs->put_contents($file, "<?php\n// Silence is golden.\n", FS_CHMOD_FILE);
+    }
+
+    /**
+     * Mantém os arquivos de uploads de acordo com as opções (repara se foram alterados ou removidos).
      *
      * @return void
      */
-    public function syncUploadsHtaccess()
+    public function syncUploadsFiles()
     {
-        $enabled = !empty($this->options['prevent_uploads_code_execution']);
-
-        if ($enabled === self::uploadsHtaccessHasRules()) {
-            return;
+        // Limpa o bloco deixado pela versão antiga quando ela não está mais ativa.
+        $htaccess = self::uploadsDir() . '.htaccess';
+        $fs       = self::filesystem();
+        if ($fs && $fs->exists($htaccess)
+            && false !== strpos((string) $fs->get_contents($htaccess), '# BEGIN ' . self::LEGACY_HTACCESS_MARKER)
+            && !(function_exists('is_plugin_active') && is_plugin_active('protectmywordpress/protectmywordpress.php'))) {
+            self::removeLegacyHtaccessBlock();
         }
 
-        if (!self::writeUploadsHtaccess($enabled) && $enabled) {
-            add_action('admin_notices', function () {
-                echo '<div class="notice notice-error"><p>';
-                esc_html_e('ProtectMyWordPress: Não foi possível criar .htaccess na pasta uploads. Verifique as permissões.', 'protectmywordpress');
-                echo '</p></div>';
-            });
+        $enabled = !empty($this->options['prevent_uploads_code_execution']);
+
+        if ($enabled !== self::uploadsHtaccessHasRules() && !self::writeUploadsHtaccess($enabled) && $enabled) {
+            $this->fileNotice(__('Hardenly could not write the protection rules to .htaccess in the uploads folder. Please check the file permissions.', 'hardenly'));
+        }
+
+        if (!empty($this->options['disable_directory_browsing']) && !self::writeUploadsIndex()) {
+            $this->fileNotice(__('Hardenly could not create index.php in the uploads folder. Please check the file permissions.', 'hardenly'));
         }
     }
 
     /**
-     * Cria um arquivo index.php na pasta de uploads para desabilitar a navegação de diretórios.
+     * Exibe um aviso de erro no painel.
      *
+     * @param string $message Mensagem já traduzida.
      * @return void
      */
-    public function createUploadsIndex()
+    private function fileNotice($message)
     {
-        $upload_dir = wp_upload_dir(null, false);
-        $index_file = trailingslashit($upload_dir['basedir']) . 'index.php';
-
-        if (!file_exists($index_file)) {
-            $content = "<?php // Silence is golden.";
-            if (false === file_put_contents($index_file, $content)) {
-                if (is_admin()) {
-                    add_action('admin_notices', function () {
-                        echo '<div class="notice notice-error"><p>';
-                        esc_html_e('ProtectMyWordPress: Não foi possível criar index.php na pasta uploads. Verifique as permissões.', 'protectmywordpress');
-                        echo '</p></div>';
-                    });
-                }
-            }
-        }
+        add_action('admin_notices', function () use ($message) {
+            printf('<div class="notice notice-error"><p>%s</p></div>', esc_html($message));
+        });
     }
 
     /**
@@ -275,12 +332,7 @@ class PMWSecurity
     public function disableUserRestEndpoint($endpoints)
     {
         if (!current_user_can('edit_posts')) {
-            if (isset($endpoints['/wp/v2/users'])) {
-                unset($endpoints['/wp/v2/users']);
-            }
-            if (isset($endpoints['/wp/v2/users/(?P<id>[\d]+)'])) {
-                unset($endpoints['/wp/v2/users/(?P<id>[\d]+)']);
-            }
+            unset($endpoints['/wp/v2/users'], $endpoints['/wp/v2/users/(?P<id>[\d]+)']);
         }
         return $endpoints;
     }
@@ -323,7 +375,7 @@ class PMWSecurity
             return $error;
         }
 
-        return __('Login falhou.', 'protectmywordpress');
+        return __('Login failed.', 'hardenly');
     }
 
     /**
@@ -341,133 +393,107 @@ class PMWSecurity
     /**
      * Bloqueia o registro se o nome de usuário for "admin".
      *
-     * @param WP_Error $errors             Erros de registro.
+     * @param WP_Error $errors               Erros de registro.
      * @param string   $sanitized_user_login Nome de usuário sanitizado.
-     * @param string   $user_email          Email do usuário.
+     * @param string   $user_email           Email do usuário.
      *
      * @return WP_Error
      */
     public function blockAdminUsername($errors, $sanitized_user_login, $user_email)
     {
         if (strtolower($sanitized_user_login) === 'admin') {
-            $errors->add('username_error', __('O nome de usuário "admin" não é permitido.', 'protectmywordpress'));
+            $errors->add('username_error', __('The username "admin" is not allowed.', 'hardenly'));
         }
         return $errors;
     }
 
     /**
-     * Bloqueia o registro se o login e o nome de exibição forem iguais.
+     * Impede salvar um perfil cujo nome de exibição seja igual ao login.
      *
-     * @param WP_Error $errors             Erros de registro.
-     * @param string   $sanitized_user_login Nome de usuário sanitizado.
-     * @param string   $user_email          Email do usuário.
+     * O nome de exibição é público (autor dos posts, comentários, feeds); igual ao login,
+     * ele entrega metade das credenciais.
      *
-     * @return WP_Error
+     * @param WP_Error $errors Erros do perfil.
+     * @param bool     $update Se é uma atualização de usuário existente.
+     * @param stdClass $user   Dados do usuário enviados no formulário.
+     * @return void
      */
-    public function blockSameLoginDisplay($errors, $sanitized_user_login, $user_email)
+    public function blockSameLoginDisplay($errors, $update, $user)
     {
-        // O formulário de registro do core não tem nonce; leitura só para validação.
-        // phpcs:ignore WordPress.Security.NonceVerification.Missing
-        if (isset($_POST['display_name'])) {
-            // phpcs:ignore WordPress.Security.NonceVerification.Missing
-            $display_name = sanitize_text_field(wp_unslash($_POST['display_name']));
-            if (strtolower($sanitized_user_login) === strtolower($display_name)) {
-                $errors->add('displayname_error', __('Seu nome de exibição não pode ser igual ao nome de usuário.', 'protectmywordpress'));
-            }
+        if (!$update || empty($user->display_name)) {
+            return;
         }
-        return $errors;
+
+        $login = isset($user->user_login) ? $user->user_login : get_userdata($user->ID)->user_login;
+
+        if (strtolower($login) === strtolower($user->display_name)) {
+            $errors->add('hardenly_display_name', __('Your public display name cannot be the same as your username.', 'hardenly'));
+        }
+    }
+
+    /**
+     * Monta um item de status.
+     *
+     * @param string $state   ok, error ou off.
+     * @param string $message Mensagem já traduzida.
+     * @return array
+     */
+    private static function status($state, $message)
+    {
+        return ['state' => $state, 'message' => $message];
     }
 
     /**
      * Verifica o status dos módulos de segurança.
      *
-     * Método estático para evitar efeitos colaterais ao ser chamado do AJAX handler.
-     *
-     * @return array
+     * @return array<string, array{state: string, message: string}>
      */
     public static function checkModulesStatus()
     {
-        $options    = pmw_get_options();
-        $status     = [];
-        $upload_dir = wp_upload_dir(null, false);
-        $basedir    = trailingslashit($upload_dir['basedir']);
+        $options = hardenly_get_options();
+        $basedir = self::uploadsDir();
 
-        // Verifica se o registro de usuários está desabilitado.
-        if (empty($options['disable_registration'])) {
-            $status['disable_registration'] = __('Módulo desativado.', 'protectmywordpress');
-        } else {
-            $status['disable_registration'] = (get_option('users_can_register') == 0)
-                ? 'OK'
-                : __('Erro: users_can_register ativado.', 'protectmywordpress');
-        }
-
-        // Verifica se o editor de arquivos está desabilitado.
-        if (empty($options['disable_file_editors'])) {
-            $status['disable_file_editors'] = __('Módulo desativado.', 'protectmywordpress');
-        } else {
-            $status['disable_file_editors'] = (defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT === true)
-                ? 'OK'
-                : __('Erro: DISALLOW_FILE_EDIT não definido.', 'protectmywordpress');
-        }
-
-        // Verifica a existência do .htaccess na pasta de uploads.
-        if (empty($options['prevent_uploads_code_execution'])) {
-            $status['prevent_uploads_code_execution'] = __('Módulo desativado.', 'protectmywordpress');
-        } else {
+        $checks = [
+            'disable_registration' => [
+                0 === (int) get_option('users_can_register'),
+                __('Error: users_can_register is enabled.', 'hardenly'),
+            ],
+            'disable_file_editors' => [
+                defined('DISALLOW_FILE_EDIT') && DISALLOW_FILE_EDIT === true,
+                __('Error: DISALLOW_FILE_EDIT is not defined.', 'hardenly'),
+            ],
             // Confere o bloco de regras do plugin, não só a existência do arquivo.
-            $status['prevent_uploads_code_execution'] = self::uploadsHtaccessHasRules()
-                ? 'OK'
-                : __('Erro: .htaccess não encontrado em uploads.', 'protectmywordpress');
+            'prevent_uploads_code_execution' => [
+                self::uploadsHtaccessHasRules(),
+                __('Error: the protection rules are missing from .htaccess in the uploads folder.', 'hardenly'),
+            ],
+            'disable_directory_browsing' => [
+                file_exists($basedir . 'index.php'),
+                __('Error: index.php does not exist in the uploads folder.', 'hardenly'),
+            ],
+            // Lê os filtros do core para confirmar que o XML-RPC está mesmo desligado.
+            'disable_xmlrpc' => [
+                apply_filters('xmlrpc_enabled', true) === false // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+                    && apply_filters('xmlrpc_methods', ['pingback.ping' => 'this:pingback_ping']) === [], // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound
+                __('Error: XML-RPC is enabled.', 'hardenly'),
+            ],
+            'hide_wp_version' => [
+                has_action('wp_head', 'wp_generator') === false,
+                __('Error: wp_generator is still active.', 'hardenly'),
+            ],
+        ];
+
+        $status = [];
+        foreach (array_keys(hardenly_default_options()) as $key) {
+            if (empty($options[$key])) {
+                $status[$key] = self::status('off', __('Module disabled.', 'hardenly'));
+            } elseif (isset($checks[$key]) && !$checks[$key][0]) {
+                $status[$key] = self::status('error', $checks[$key][1]);
+            } else {
+                // Módulos baseados em filtros ficam ativos sempre que a opção está ligada.
+                $status[$key] = self::status('ok', __('Active.', 'hardenly'));
+            }
         }
-
-        // Verifica se o index.php na pasta de uploads existe.
-        if (empty($options['disable_directory_browsing'])) {
-            $status['disable_directory_browsing'] = __('Módulo desativado.', 'protectmywordpress');
-        } else {
-            $status['disable_directory_browsing'] = file_exists($basedir . 'index.php')
-                ? 'OK'
-                : __('Erro: index.php não existe em uploads.', 'protectmywordpress');
-        }
-
-        // Verifica se o XML-RPC está desabilitado.
-        if (empty($options['disable_xmlrpc'])) {
-            $status['disable_xmlrpc'] = __('Módulo desativado.', 'protectmywordpress');
-        } else {
-            $status['disable_xmlrpc'] = (apply_filters('xmlrpc_enabled', true) === false
-                && apply_filters('xmlrpc_methods', ['pingback.ping' => 'this:pingback_ping']) === [])
-                ? 'OK'
-                : __('Erro: XML-RPC ativado.', 'protectmywordpress');
-        }
-
-        // Verifica se a versão do WP está oculta (wp_generator removido do wp_head).
-        if (empty($options['hide_wp_version'])) {
-            $status['hide_wp_version'] = __('Módulo desativado.', 'protectmywordpress');
-        } else {
-            $status['hide_wp_version'] = (has_action('wp_head', 'wp_generator') === false)
-                ? 'OK'
-                : __('Erro: wp_generator ainda ativo.', 'protectmywordpress');
-        }
-
-        // Módulos baseados em filtros: confirmados como ativos se a opção está habilitada.
-        $status['prevent_login_feedback'] = !empty($options['prevent_login_feedback'])
-            ? 'OK'
-            : __('Módulo desativado.', 'protectmywordpress');
-
-        $status['disable_user_enumeration'] = !empty($options['disable_user_enumeration'])
-            ? 'OK'
-            : __('Módulo desativado.', 'protectmywordpress');
-
-        $status['unset_x_powered_by'] = !empty($options['unset_x_powered_by'])
-            ? 'OK'
-            : __('Módulo desativado.', 'protectmywordpress');
-
-        $status['block_admin_username'] = !empty($options['block_admin_username'])
-            ? 'OK'
-            : __('Módulo desativado.', 'protectmywordpress');
-
-        $status['block_registration_same_login_display'] = !empty($options['block_registration_same_login_display'])
-            ? 'OK'
-            : __('Módulo desativado.', 'protectmywordpress');
 
         return $status;
     }
